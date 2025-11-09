@@ -1,0 +1,92 @@
+************************************************************************
+*  모듈/서브모듈    :        FI / 회계                                 *
+*  TYPE             :        REPORT                                    *
+*  P/G 개요         :        프로젝트별 매출원가 조회                  *
+*  작성자           :        FID02                                     *
+*  작성일자         :        2013.09.05                                *
+*                                                                      *
+************************************************************************
+*                                                                      *
+*                        MODIFICATION LOG                              *
+*                                                                      *
+*  Date.           Author.        description.                         *
+* -----------    -----------    ------------------------------         *
+* 2013/09/05      FID02         INITIAL RELEASE                        *
+************************************************************************
+* 2014/01/07      FID02
+* 1) 조직개편관련 로직 추가
+* 2014/12/03      FII02
+* 2) 그룹 CALL 로직 추가
+"2018/02/07      FII02
+*1) 디테일 조회 시 매출원가/판매관리비 구분자 추가
+************************************************************************
+REPORT ZFIR3045 MESSAGE-ID ZMFI01.
+
+INCLUDE ZIFR0000ALV.
+
+
+INCLUDE ZFIR3045TOP.
+INCLUDE ZFIR3045O01.
+INCLUDE ZFIR3045I01.
+INCLUDE ZFIR3045F01.
+
+*----------------------------------------------------------------------*
+*  INITIALIZATION.
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  P_ORVER = ZCL_FI_COMM=>GET_ACTIVE_ORVER( ).
+
+*----------------------------------------------------------------------*
+*  AT SELECTION-SCREEN.
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_SPMON.
+  P_SPMON = ZCL_FI_COMM=>POPUP_TO_SELECT_MONTH( ).
+
+AT SELECTION-SCREEN ON P_SPMON.
+  PERFORM CHECK_SPMON.
+
+AT SELECTION-SCREEN ON P_BUKRS.
+  PERFORM READ_T001_WAERS.
+
+AT SELECTION-SCREEN.
+  PERFORM SSCRFIELDS_UCOMM.
+* 그룹모두 입력 체크 -- 2014.12.04 BY fii02 그룹정보 선언
+  PERFORM GROUP_CHECK.
+* pctr group popup get "-- 2014.12.04 BY fii02 그룹정보 선언
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_PCGRP.
+  PERFORM ACTIVITY_GROUP_POPUP USING P_KOKRS P_KOKRS '0106' P_PCGRP.
+
+* WBS Group popup get "-- 2014.12.04 BY fii02 그룹정보 선언
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_WBSGRP.
+  PERFORM ACTIVITY_GROUP_POPUP USING P_KOKRS P_KOKRS '0110' P_WBSGRP.
+
+
+*----------------------------------------------------------------------*
+*  START-OF-SELECTION.
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  PERFORM MAIN_PROCESS.
+
+*  "마스터 텍스트 READ
+  PERFORM MODIFY_OUTTAB.
+
+  PERFORM APPEND_OUTBAK.
+
+
+
+*----------------------------------------------------------------------*
+*  END-OF-SELECTION.
+*----------------------------------------------------------------------*
+END-OF-SELECTION.
+  CALL METHOD ZCL_FI_COMM=>DISPLAY_COUNT( GT_OUTTAB ).
+
+  IF GT_OUTTAB[] IS NOT INITIAL.
+    CALL SCREEN 0100.
+  ENDIF.
+
+*  PERFORM HANDLE_TOP_OF_PAGE.
+*  PERFORM HANDLE_DOUBLE_CLICK.
+*  PERFORM HANDLE_SUBTOTAL_TEXT.
+*  PERFORM HANDLE_SUBTOTAL_TEXT2.
+

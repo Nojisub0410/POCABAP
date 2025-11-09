@@ -1,0 +1,45 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFIR3020I01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0100 INPUT.
+
+  CLEAR OK_CODE.
+  OK_CODE = OKCODE.
+
+  CASE OK_CODE.
+    WHEN 'BACK' OR 'EXIT' OR 'CANC'.
+      LEAVE TO SCREEN 0.
+
+      "-- 조회레벨
+    WHEN 'LEVEL'.
+      PERFORM CALL_SCREEN_0200.
+
+      "-- 프로젝트별 조회
+    WHEN 'POSID'.
+      PERFORM DISPLAY_POSID.
+
+      "-- 엑셀다운로드
+    WHEN 'DOWN'.
+      PERFORM EXCEL_FROM_ITAB.
+
+      "세부내역 다운로드
+    WHEN 'DOWN2'.
+      PERFORM EXCEL_DOWN.
+
+  ENDCASE.
+
+ENDMODULE.                 " USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*&      Module  SET_ALV_GRID_0100  OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE SET_ALV_GRID_0100 OUTPUT.
+  PERFORM SET_ALV_GRID_0100.
+ENDMODULE.                 " SET_ALV_GRID_0100  OUTPUT
+

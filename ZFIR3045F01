@@ -1,0 +1,2267 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFIR3020F01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  SET_ALV_GRID_0100
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM SET_ALV_GRID_0100 .
+
+  "*-1.screen 100# ALV grid
+  GS_VARIANT-REPORT = SY-REPID.
+  G_REPID           = SY-REPID.
+  G_HEIGHT          = 80.
+
+  "** NEW container CREATE
+  IF GO_DOCKING_CONTAINER IS INITIAL.
+
+    "*-- create docking container(super container)
+    PERFORM CREATE_DOCKING_CONTAINER
+               USING GO_DOCKING_CONTAINER
+                     CL_GUI_DOCKING_CONTAINER=>DOCK_AT_TOP 500.
+
+    "*-- create spliter & split container as two part, header & ALV Grid
+    PERFORM SPLIT_CONTAINER USING GO_DOCKING_CONTAINER G_HEIGHT.
+
+    "*-- Create ALV grid container
+    PERFORM CREATE_GRID_CONTAINER  USING GO_CONTAINER2
+                                         GO_GRID 'X'.
+
+**-- set gird variants
+*    PERFORM set_grid_vari     USING 'A1' 'GR1'  ''
+*                           CHANGING gs_variant.
+
+    "*-- set grid Layout
+    PERFORM SET_GRID_LAYOUT   USING
+                  '' 'X' '' 'D' '' '' '' '' '' ''
+                   CHANGING GS_LAYOUT.
+    GS_LAYOUT-NO_TOTLINE = 'X'.
+
+    "*-- set Fieldcatalog
+    PERFORM SET_GRID_FIELDCATALOG TABLES GT_FIELDCAT[].
+
+    "*-- set Exclude function
+    PERFORM SET_EXCLUDE_FUNC  USING 'NO_INSERT'
+                           CHANGING GT_EXCLUDE.
+
+    "*-- set sort
+    PERFORM SET_ALV_SORT TABLES GT_SORT[].
+
+    "*-- regiseter event handler
+    PERFORM REGISTER_EVENT_HANDLER USING GO_GRID GO_EVENT_RCVR
+                'X' 'X' '' '' '' '' '' '' '' '' ''.
+    SET HANDLER GO_EVENT_RCVR->HANDLE_SUBTOTAL_TEXT FOR GO_GRID.
+
+    "*-- display ALV list
+    PERFORM DISPLAY_ALV_GRID   USING 'GT_OUTTAB'
+                                      GO_GRID
+                                      GS_VARIANT
+                                      GS_LAYOUT
+                                      GT_EXCLUDE[]
+                                      GT_FIELDCAT[]
+                                      GT_SORT[].
+*  ELSE.
+*
+*    "*-- ALV data DISPLAY
+*    PERFORM REFRESH_GRID_TABLE  USING GO_GRID GS_STABLE.
+
+  ENDIF.
+
+  "*-2. SCREEN HEADER by processing TOP-OF-PAGE event
+  CALL METHOD GO_DOCUMENT->INITIALIZE_DOCUMENT.
+
+  CALL METHOD GO_GRID->LIST_PROCESSING_EVENTS
+    EXPORTING
+      I_EVENT_NAME = 'TOP_OF_PAGE'
+      I_DYNDOC_ID  = GO_DOCUMENT.
+
+ENDFORM.                    " SET_ALV_GRID_0100
+*&---------------------------------------------------------------------*
+*&      Form  SET_GRID_FIELDCATALOG
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GT_FIELDCAT[]  text
+*----------------------------------------------------------------------*
+FORM SET_GRID_FIELDCATALOG
+      TABLES   PT_FIELDCAT STRUCTURE  LVC_S_FCAT.
+
+  DATA : LS_FIELDCAT  TYPE LVC_S_FCAT.
+  DATA : LR_STRDESCR  TYPE REF TO CL_ABAP_STRUCTDESCR ,
+         LT_DFIES     TYPE DDFIELDS,
+         LS_DFIES     TYPE DFIES.
+
+  LR_STRDESCR ?= CL_ABAP_STRUCTDESCR=>DESCRIBE_BY_DATA( GS_OUTTAB ).
+  LT_DFIES = CL_SALV_DATA_DESCR=>READ_STRUCTDESCR( LR_STRDESCR ).
+
+*BREAK-POINT.
+  CLEAR : LS_FIELDCAT, PT_FIELDCAT[].
+  LOOP AT LT_DFIES INTO LS_DFIES.
+    MOVE-CORRESPONDING LS_DFIES TO LS_FIELDCAT .
+
+    LS_FIELDCAT-COL_OPT = 'X'.
+
+    CASE LS_FIELDCAT-FIELDNAME.
+      WHEN 'GU' OR 'GUTXT'.
+        LS_FIELDCAT-NO_OUT   = 'X'.
+
+      WHEN 'GUTOP_TXT'.
+        LS_FIELDCAT-REPTEXT  = '구분'.
+        LS_FIELDCAT-KEY      = 'X'.
+
+      WHEN 'GUBUN_TXT'.
+        LS_FIELDCAT-REPTEXT  = '중분류'.
+        LS_FIELDCAT-KEY      = 'X'.
+        LS_FIELDCAT-NO_OUT   = 'X'.
+
+      WHEN 'GUBUN2_TXT'.
+        LS_FIELDCAT-REPTEXT  = '계정내역'.
+        LS_FIELDCAT-KEY      = 'X'.
+
+      WHEN 'ZCO_CD'.
+        LS_FIELDCAT-REPTEXT  = '법인코드'.
+        LS_FIELDCAT-KEY      = 'X'.
+
+      WHEN 'HKONT' .
+        LS_FIELDCAT-NO_OUT   = 'X'.
+
+      WHEN 'TXT20'.
+        LS_FIELDCAT-REPTEXT  = '상세내역'.
+        LS_FIELDCAT-NO_OUT   = G_OUT_HKONT.
+        LS_FIELDCAT-KEY      = 'X'.
+
+      WHEN 'GSBER' OR 'GTEXT'.
+        LS_FIELDCAT-NO_OUT   = G_OUT_GSBER.
+
+      WHEN 'PRCTR' OR 'KTEXT'.
+        LS_FIELDCAT-NO_OUT   = G_OUT_PRCTR.
+
+      WHEN 'PSPID' OR 'POST1'.
+        LS_FIELDCAT-NO_OUT   = G_OUT_PSPID.
+
+      WHEN 'DMBTR'.
+        LS_FIELDCAT-CURRENCY    = G_WAERS.
+        LS_FIELDCAT-DO_SUM      = 'X'.
+        LS_FIELDCAT-EMPHASIZE   = 'C500'.
+
+      WHEN 'RFAREA'.
+        LS_FIELDCAT-NO_OUT   = G_OUT_FAREA.
+*        LS_FIELDCAT-KEY      = 'X'.
+        LS_FIELDCAT-NO_OUT   = 'X'.
+
+      WHEN 'XBILK' OR 'GUTOP' OR 'GUBUN' OR 'WAERS'  OR 'HKONT2'.
+        LS_FIELDCAT-JUST        = 'C'.
+        LS_FIELDCAT-NO_OUT      = 'X'.
+
+    ENDCASE.
+
+    LS_FIELDCAT-COLTEXT   = LS_FIELDCAT-REPTEXT.
+    LS_FIELDCAT-SCRTEXT_L = LS_FIELDCAT-REPTEXT.
+    LS_FIELDCAT-SCRTEXT_M = LS_FIELDCAT-REPTEXT.
+    LS_FIELDCAT-SCRTEXT_S = LS_FIELDCAT-REPTEXT.
+
+    APPEND LS_FIELDCAT  TO PT_FIELDCAT . CLEAR LS_FIELDCAT.
+
+  ENDLOOP.
+
+ENDFORM.                    " SET_GRID_FIELDCATALOG
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_TOP_OF_PAGE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM HANDLE_TOP_OF_PAGE USING
+                 PO_DOCUMENT    TYPE REF TO CL_DD_DOCUMENT.
+
+
+  DATA: LO_TEXT        TYPE REF TO CL_DD_TABLE_ELEMENT.     "#EC NEEDED
+  DATA: LO_COLUMN1     TYPE REF TO CL_DD_AREA.              "#EC NEEDED
+  DATA: LO_COLUMN2     TYPE REF TO CL_DD_AREA.              "#EC NEEDED
+  DATA: LO_COLUMN3     TYPE REF TO CL_DD_AREA.              "#EC NEEDED
+
+*-- create document for header view
+  IF PO_DOCUMENT IS INITIAL.
+    CREATE OBJECT PO_DOCUMENT
+      EXPORTING
+        STYLE = 'ALV_GRID'.
+  ENDIF.
+
+  CALL METHOD PO_DOCUMENT->INITIALIZE_DOCUMENT.
+
+*-- TABLE SETTING
+  PERFORM CREATE_TABLE USING PO_DOCUMENT    LO_TEXT
+          LO_COLUMN1 LO_COLUMN2 LO_COLUMN3.
+
+*-- WRITE TEXT
+  PERFORM APPEND_HEADING_TEXT USING
+          PO_DOCUMENT LO_TEXT  LO_COLUMN1 LO_COLUMN2 LO_COLUMN3.
+
+*-- Populating data to html control
+  PERFORM SHOW_DOCUMENT_AS_HTML USING GO_CONTAINER
+                                      GO_HTML_VIEWER PO_DOCUMENT.
+
+
+
+ENDFORM.                    " HANDLE_TOP_OF_PAGE
+*&---------------------------------------------------------------------*
+*&      Form  APPEND_HEADING_TEXT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_PO_DOCUMENT  text
+*      -->P_LO_TEXT  text
+*      -->P_LO_COLUMN1  text
+*      -->P_LO_COLUMN2  text
+*      -->P_LO_COLUMN3  text
+*----------------------------------------------------------------------*
+FORM APPEND_HEADING_TEXT  USING
+               PO_DOCUMENT TYPE REF TO CL_DD_DOCUMENT
+               PO_TEXT     TYPE REF TO CL_DD_TABLE_ELEMENT
+               PO_COLUMN1  TYPE REF TO CL_DD_AREA
+               PO_COLUMN2  TYPE REF TO CL_DD_AREA
+               PO_COLUMN3  TYPE REF TO CL_DD_AREA.
+
+  DATA : LV_TEXT(255) TYPE C,
+         LV_BUTXT     LIKE T001-BUTXT.
+
+  "-- 회사 코드
+  CLEAR LV_TEXT.
+  SELECT SINGLE BUTXT INTO LV_BUTXT
+           FROM T001
+          WHERE BUKRS = P_BUKRS.
+
+  CONCATENATE P_BUKRS LV_BUTXT  INTO LV_TEXT SEPARATED BY SPACE.
+  PERFORM ADD_DOC_TEXT2 USING PO_DOCUMENT PO_TEXT
+          PO_COLUMN1 PO_COLUMN2 PO_COLUMN3  TEXT-T04 LV_TEXT.
+
+  "-- 기준 연월
+  CLEAR LV_TEXT.
+  CONCATENATE P_SPMON+0(4) '.' P_SPMON+4(2)
+                 INTO LV_TEXT SEPARATED BY SPACE.
+  PERFORM ADD_DOC_TEXT2 USING PO_DOCUMENT PO_TEXT
+          PO_COLUMN1 PO_COLUMN2 PO_COLUMN3  TEXT-T02 LV_TEXT.
+
+
+ENDFORM.                    " APPEND_HEADING_TEXT
+
+*&---------------------------------------------------------------------*
+*&      Form  READ_T001_WAERS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM READ_T001_WAERS .
+
+  SELECT SINGLE WAERS INTO G_WAERS
+           FROM T001
+          WHERE BUKRS = P_BUKRS.
+
+ENDFORM.                    " READ_T001_WAERS
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM HANDLE_DOUBLE_CLICK USING E_ROW       TYPE LVC_S_ROW
+                               E_COLUMN    TYPE LVC_S_COL
+                               ES_ROW_NO   TYPE LVC_S_ROID.
+
+*  CHECK SY-DYNNR = '0100'.
+  DATA : L_SUBRC TYPE SY-SUBRC.
+
+  CASE E_COLUMN-FIELDNAME.
+    WHEN 'HKONT'.
+      READ TABLE GT_OUTTAB INTO GS_OUTTAB INDEX ES_ROW_NO-ROW_ID.
+      CHECK SY-SUBRC = 0.
+      SET PARAMETER ID: 'ACC' FIELD GS_OUTTAB-HKONT,
+                        'BUK' FIELD P_BUKRS,
+                        'GJR' FIELD P_SPMON+0(4).
+
+      CALL TRANSACTION 'FAGLB03' AND SKIP FIRST SCREEN.
+
+*    WHEN 'DMBTR'.   "금액
+*      READ TABLE GT_OUTTAB INTO GS_OUTTAB INDEX ES_ROW_NO-ROW_ID.
+*      CHECK SY-SUBRC = 0.
+*      PERFORM DISPLAY_DETAIL USING GS_OUTTAB-GU
+*                                   GS_OUTTAB-GUTOP
+*                                   GS_OUTTAB-GUBUN
+*                                   GS_OUTTAB-GUBUN2_TXT
+*                                   GS_OUTTAB-HKONT
+*                                   GS_OUTTAB-GSBER
+*                                   GS_OUTTAB-PRCTR
+*                                   GS_OUTTAB-PSPID.
+
+    WHEN 'DOCNR'.
+      READ TABLE GT_DETAIL INTO GS_DETAIL INDEX ES_ROW_NO-ROW_ID.
+      CHECK SY-SUBRC = 0.
+      SET PARAMETER ID: 'BLN' FIELD GS_DETAIL-DOCNR,
+                        'BUK' FIELD P_BUKRS,
+                        'GJR' FIELD GS_DETAIL-RYEAR.
+
+      CALL TRANSACTION 'FB03' AND SKIP FIRST SCREEN.
+
+    WHEN 'TOTAL'. "합계
+      READ TABLE <TABLE> INTO <LS_TABLE>  INDEX ES_ROW_NO-ROW_ID.
+      CHECK SY-SUBRC = 0.
+
+      ASSIGN COMPONENT 'GU'    OF STRUCTURE <LS_TABLE> TO <GU>.
+      ASSIGN COMPONENT 'GUTOP' OF STRUCTURE <LS_TABLE> TO <GUTOP>.
+      ASSIGN COMPONENT 'GUBUN' OF STRUCTURE <LS_TABLE> TO <GUBUN>.
+      ASSIGN COMPONENT 'GUBUN2_TXT' OF STRUCTURE <LS_TABLE> TO <GUBUN2_TXT>.
+      ASSIGN COMPONENT 'HKONT' OF STRUCTURE <LS_TABLE> TO <HKONT>.
+      CHECK SY-SUBRC = 0.
+
+    PERFORM DISPLAY_DETAIL USING  <GU> <GUTOP> <GUBUN> <GUBUN2_TXT> <HKONT>
+                                 ''  '' '' ''.
+
+    WHEN 'ZZZZ'.
+      READ TABLE <TABLE> INTO <LS_TABLE>  INDEX ES_ROW_NO-ROW_ID.
+      CHECK SY-SUBRC = 0.
+
+      ASSIGN COMPONENT 'GU'    OF STRUCTURE <LS_TABLE> TO <GU>.
+      ASSIGN COMPONENT 'GUTOP' OF STRUCTURE <LS_TABLE> TO <GUTOP>.
+      ASSIGN COMPONENT 'GUBUN' OF STRUCTURE <LS_TABLE> TO <GUBUN>.
+      ASSIGN COMPONENT 'GUBUN2_TXT' OF STRUCTURE <LS_TABLE> TO <GUBUN2_TXT>.
+      ASSIGN COMPONENT 'HKONT' OF STRUCTURE <LS_TABLE> TO <HKONT>.
+      CHECK SY-SUBRC = 0.
+
+    PERFORM DISPLAY_DETAIL USING  <GU> <GUTOP> <GUBUN> <GUBUN2_TXT> <HKONT>
+                                 ''  '' 'ZZZZ' ''.
+
+    WHEN OTHERS.
+      READ TABLE GT_PROJ INTO GS_PROJ WITH KEY PSPID = E_COLUMN-FIELDNAME.
+      CHECK  SY-SUBRC = 0.
+
+      READ TABLE <TABLE> INTO <LS_TABLE>  INDEX ES_ROW_NO-ROW_ID.
+      CHECK SY-SUBRC = 0.
+
+      ASSIGN COMPONENT 'GU'    OF STRUCTURE <LS_TABLE> TO <GU>.
+      ASSIGN COMPONENT 'GUTOP' OF STRUCTURE <LS_TABLE> TO <GUTOP>.
+      ASSIGN COMPONENT 'GUBUN' OF STRUCTURE <LS_TABLE> TO <GUBUN>.
+      ASSIGN COMPONENT 'GUBUN2_TXT' OF STRUCTURE <LS_TABLE> TO <GUBUN2_TXT>.
+      ASSIGN COMPONENT 'HKONT' OF STRUCTURE <LS_TABLE> TO <HKONT>.
+      CHECK SY-SUBRC = 0.
+
+    PERFORM DISPLAY_DETAIL USING  <GU> <GUTOP> <GUBUN> <GUBUN2_TXT> <HKONT>
+                                 ''
+                                 ''
+                                 GS_PROJ-PSPID
+                                 ''.
+
+  ENDCASE.
+
+ENDFORM.                    " HANDLE_DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+*&      Form  MODIFY_OUTTAB
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM MODIFY_OUTTAB .
+
+  DATA L_TXT(30).
+
+  "--계정명
+  LOOP AT GT_OUTTAB INTO GS_OUTTAB WHERE HKONT IS NOT INITIAL
+                                     AND TXT20 IS INITIAL.
+
+    LOOP AT GT_ZFIT0044 INTO GS_ZFIT0044
+                        WHERE HKONT <= GS_OUTTAB-HKONT
+                          AND HKONT_END >= GS_OUTTAB-HKONT.
+      EXIT.
+    ENDLOOP.
+    CHECK SY-SUBRC = 0.
+
+    GS_OUTTAB-GUTOP = GS_ZFIT0044-GUBUN+0(1).
+    GS_OUTTAB-GUBUN = GS_ZFIT0044-GUBUN.
+
+    GS_OUTTAB-HKONT2 = GS_OUTTAB-HKONT.
+
+    PERFORM GET_HKONT_TEXT(ZFIFORMS)  USING '1000'
+                                            GS_OUTTAB-HKONT
+                                            GS_OUTTAB-TXT20.
+
+    "-- 소분류
+    SPLIT GS_OUTTAB-TXT20 AT '-' INTO GS_OUTTAB-GUBUN2_TXT L_TXT.
+
+    IF GS_OUTTAB-GUBUN2_TXT = '타계정대체'.
+      GS_OUTTAB-GUBUN2_TXT = L_TXT.
+    ENDIF.
+
+    IF GS_OUTTAB-GUBUN2_TXT = '퇴직금'.
+      GS_OUTTAB-GUBUN2_TXT = '퇴직급여'.
+    ENDIF.
+    MODIFY GT_OUTTAB FROM GS_OUTTAB
+             TRANSPORTING TXT20 GUTOP GUBUN  GUBUN2_TXT HKONT2
+                    WHERE HKONT = GS_OUTTAB-HKONT.
+  ENDLOOP.
+
+  "--계정명
+  DATA LV_TABIX TYPE SY-TABIX.
+  GV_DOMNAME = 'ZDGUBUN3'.
+  LOOP AT GT_OUTTAB INTO GS_OUTTAB WHERE GUBUN  IS NOT INITIAL.
+
+    LV_TABIX = SY-TABIX.
+
+    CASE GS_OUTTAB-GUTOP.
+      WHEN 'A'.
+        GS_OUTTAB-GUTOP_TXT = '매출액'.
+        GS_OUTTAB-GU        = 'A'.
+        GS_OUTTAB-GUTXT     = '매출액'.
+        CLEAR GS_OUTTAB-RFAREA.
+      WHEN 'B'.
+        GS_OUTTAB-GUTOP_TXT = '매출원가'.
+        GS_OUTTAB-GU        = 'B'.
+        GS_OUTTAB-GUTXT     = '매출원가'.
+        CLEAR GS_OUTTAB-RFAREA.
+
+      WHEN 'C'.
+        CASE GS_OUTTAB-RFAREA.
+          WHEN '1000'.
+            GS_OUTTAB-GUTOP_TXT = '매출원가(경비)'.
+            GS_OUTTAB-GU        = 'C'.
+            GS_OUTTAB-GUTXT     = '매출총이익'.
+
+          WHEN '2000'.
+            GS_OUTTAB-GUTOP_TXT = '판매관리비'.
+            GS_OUTTAB-GU        = 'D'.
+            GS_OUTTAB-GUTXT     = '영업이익'.
+        ENDCASE.
+
+
+        GS_OUTTAB-HKONT  = GS_OUTTAB-HKONT+0(5).
+        CLEAR  : GS_OUTTAB-TXT20.
+    ENDCASE.
+
+    GV_DOMVALUE = GS_OUTTAB-GUBUN.
+    GV_DDTEXT   = ZCL_FI_COMM=>GET_DOMAIN_VALUES(
+        IV_DOMNAME  = GV_DOMNAME
+        IV_DOMVALUE = GV_DOMVALUE ).
+
+    GS_OUTTAB-GUBUN_TXT = GV_DDTEXT.
+    "2014.04.16 중분류,소분류 합치기 by FII02
+    IF GS_OUTTAB-GUBUN = 'A1' OR
+       GS_OUTTAB-GUBUN = 'A2' OR
+       GS_OUTTAB-GUBUN = 'A3' OR
+      GS_OUTTAB-GUBUN = 'A4' OR
+       GS_OUTTAB-GUBUN = 'B1' OR
+       GS_OUTTAB-GUBUN = 'B2' OR
+       GS_OUTTAB-GUBUN = 'B3' OR
+      GS_OUTTAB-GUBUN = 'B4' OR
+      GS_OUTTAB-GUBUN = 'B5' OR
+       GS_OUTTAB-GUBUN = 'B6'.
+      GS_OUTTAB-GUBUN2_TXT = GS_OUTTAB-GUBUN_TXT.
+    ENDIF.
+    MODIFY GT_OUTTAB FROM GS_OUTTAB INDEX LV_TABIX
+             TRANSPORTING GUTOP_TXT GUBUN_TXT RFAREA HKONT TXT20
+                          GU GUTXT  HKONT2 GUBUN2_TXT.
+  ENDLOOP.
+
+
+  "-- 사업영역
+  LOOP AT GT_OUTTAB INTO GS_OUTTAB WHERE GSBER IS NOT INITIAL
+                                     AND GTEXT IS INITIAL.
+
+    PERFORM GET_GSBER_TEXT(ZFIFORMS)   USING GS_OUTTAB-GSBER
+                                             GS_OUTTAB-GTEXT.
+
+
+    MODIFY GT_OUTTAB FROM GS_OUTTAB TRANSPORTING GTEXT
+                    WHERE GSBER = GS_OUTTAB-GSBER.
+  ENDLOOP.
+
+  "-- 손익센터
+  LOOP AT GT_OUTTAB INTO GS_OUTTAB WHERE PRCTR IS NOT INITIAL
+                                     AND KTEXT IS INITIAL.
+
+    PERFORM GET_PRCTR_TEXT(ZFIFORMS) USING '1000'
+                                           GS_OUTTAB-PRCTR
+                                           GV_LDATE
+                                           GS_OUTTAB-KTEXT.
+
+    MODIFY GT_OUTTAB FROM GS_OUTTAB TRANSPORTING KTEXT
+                    WHERE PRCTR = GS_OUTTAB-PRCTR.
+  ENDLOOP.
+
+  "-- 프로젝트
+  LOOP AT GT_OUTTAB INTO GS_OUTTAB WHERE PSPID IS NOT INITIAL
+                                     AND POST1 IS INITIAL.
+
+    CALL METHOD ZCL_FI_COMM=>READ_PROJ_ZZLIFZS
+      EXPORTING
+        IV_PSPID = GS_OUTTAB-PSPID
+      IMPORTING
+        EV_POST1 = GS_OUTTAB-POST1.
+
+    MODIFY GT_OUTTAB FROM GS_OUTTAB TRANSPORTING POST1
+                    WHERE PSPID = GS_OUTTAB-PSPID.
+  ENDLOOP.
+
+
+
+ENDFORM.                    " MODIFY_OUTTAB
+*&---------------------------------------------------------------------*
+*&      Form  SET_ALV_SORT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GT_SORT[]  text
+*----------------------------------------------------------------------*
+FORM SET_ALV_SORT  TABLES   PT_SORT STRUCTURE LVC_S_SORT.
+
+  DATA : LS_SORT TYPE  LVC_S_SORT,
+         L_POS   TYPE I.
+
+  DEFINE _SORT.
+    CLEAR LS_SORT.
+    L_POS = L_POS + 1.
+    LS_SORT-SPOS      = L_POS.
+    LS_SORT-FIELDNAME = &1.
+    LS_SORT-UP        = &2.
+    LS_SORT-SUBTOT    = &3.
+    LS_SORT-COMP      = &4.
+    LS_SORT-EXPA      = &5.
+    APPEND LS_SORT TO PT_SORT.
+  END-OF-DEFINITION.
+
+  CLEAR PT_SORT[].
+  _SORT : 'GU'         'X' '' ' ' ' ',
+          'GUTXT'      'X' 'X' ' ' ' ',
+          'RFAREA'     'X' '' ' ' ' ',
+          'GUTOP'      'X' '' ' ' ' ',
+          'GUTOP_TXT'  'X' 'X' ' ' ' ',
+          'GUBUN'      'X' '' ' ' ' ',
+          'HKONT'      'X' '' ' ' ' ',
+          'GUBUN_TXT'  'X' '' ' ' ' ',
+          'GUBUN2_TXT' 'X' '' ' ' ' ',
+          'TXT20'      'X' '' ' ' ' ',
+
+          'GSBER'      'X' '' ' ' ' ',
+          'GTEXT'      'X' '' ' ' ' '.
+
+ENDFORM.                    " SET_ALV_SORT
+
+*&---------------------------------------------------------------------*
+*&      Form  SSCRFIELDS_UCOMM
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM SSCRFIELDS_UCOMM .
+
+  CASE SY-UCOMM.
+    WHEN 'FC01'.
+      CALL TRANSACTION 'ZFIV0044'.
+
+  ENDCASE.
+
+ENDFORM.                    " SSCRFIELDS_UCOMM
+*&---------------------------------------------------------------------*
+*&      Form  MAIN_PROCESS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM MAIN_PROCESS .
+
+  CLEAR : GS_OUTTAB, GT_OUTTAB[].
+
+  GV_LDATE = ZCL_FI_COMM=>LAST_DAY_OF_MONTH( IV_SPMON = P_SPMON ).
+
+
+
+  "-- GET 계정
+  PERFORM GET_DATA_ZFIT0044.
+
+  "-- GET 시산
+  PERFORM GET_DATA_FAGLFLEXT.
+
+ENDFORM.                    " MAIN_PROCESS
+
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_ZFIT0060
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+*FORM SAVE_ZFIT0055 .
+*
+*  CLEAR GV_ANSWER.
+*  PERFORM POPUP_TO_CONFIRM(ZFIFORMS)
+*                      USING '확인'
+*                            '데이타를 저장 하시겠습니까?'
+*                            ' '
+*                            GV_ANSWER.
+*  CHECK GV_ANSWER = 'J'.
+*
+*  PERFORM SAVE_DATA.
+*
+*  GV_RESULT = ABAP_TRUE.
+*
+*ENDFORM.                    " SAVE_ZFIT0060
+
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_SPMON
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_LV_SPMON  text
+*----------------------------------------------------------------------*
+FORM CHECK_SPMON.
+  CONCATENATE P_SPMON+0(4) '0' P_SPMON+4(2) INTO GV_SPMON.
+
+  CLEAR S_BUDAT2[].
+  S_BUDAT2-SIGN   = 'I'.
+  S_BUDAT2-OPTION = 'BT'.
+  CONCATENATE P_SPMON '01' INTO S_BUDAT2-LOW.
+  S_BUDAT2-HIGH = ZCL_FI_COMM=>LAST_DAY_OF_MONTH( IV_SPMON = P_SPMON ).
+  APPEND S_BUDAT2.
+
+ENDFORM.                    " CHECK_SPMON
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GV_SPMON2  text
+*      -->P_1079   text
+*      -->P_1080   text
+*----------------------------------------------------------------------*
+*FORM SAVE_DATA .
+*
+*  CLEAR : GS_ZFIT0056, GT_ZFIT0056[].
+*  LOOP AT GT_OUTTAB INTO GS_OUTTAB.
+*
+*    MOVE-CORRESPONDING GS_OUTTAB TO GS_ZFIT0056.
+*    APPEND GS_ZFIT0056 TO GT_ZFIT0056.
+*
+*  ENDLOOP.
+*
+*  GS_ZFIT0056-SPMON = GV_SPMON.
+*  GS_ZFIT0056-ZCREATION_DATE = SY-DATUM.
+*  GS_ZFIT0056-ZCREATOR = SY-UNAME.
+*  MODIFY GT_ZFIT0056 FROM GS_ZFIT0056
+*             TRANSPORTING ZCREATOR ZCREATION_DATE SPMON
+*                    WHERE ZCREATOR = SPACE.
+*
+*  TRY.
+*      DELETE FROM ZFIT0056 WHERE SPMON = GV_SPMON.
+*      INSERT ZFIT0056 FROM TABLE GT_ZFIT0056.
+*      COMMIT WORK.
+*
+*      "데이터를 저장했습니다.
+*      MESSAGE S018(SV).
+*
+*    CATCH CX_ROOT INTO GO_ROOT.
+*      ROLLBACK WORK.
+*      GV_MSG = GO_ROOT->GET_TEXT( ).
+*      SPLIT GV_MSG AT ',' INTO GV_MSG1 GV_MSG2.
+*      MESSAGE S000 DISPLAY LIKE 'E' WITH GV_MSG1 ',' GV_MSG2.
+*  ENDTRY.
+*
+*
+*ENDFORM.                    " SAVE_DATA
+*&---------------------------------------------------------------------*
+*&      Form  MAIN_DISPLAY
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+*FORM MAIN_DISPLAY .
+*
+**  CLEAR : GS_OUTTAB, GT_OUTTAB[].
+**
+**  "-- 연결- 데이터 전송( 시산표)
+**  SELECT *
+**      INTO CORRESPONDING FIELDS OF TABLE GT_ZFIT0056
+**      FROM ZFIT0056
+**     WHERE SPMON = GV_SPMON
+**       AND SAKNR IN S_SAKNR.
+**
+**  LOOP AT GT_ZFIT0056 INTO GS_ZFIT0056.
+**
+**    MOVE-CORRESPONDING GS_ZFIT0056 TO GS_OUTTAB.
+**    CONCATENATE GS_ZFIT0056-SPMON+0(4) GS_ZFIT0056-SPMON+5(2)
+**          INTO GS_OUTTAB-SPMON.
+**
+***    "-- 사업영역 무시
+***    IF P_GSBER = 'X'.
+***      CLEAR GS_OUTTAB-GSBER.
+***    ENDIF.
+***
+***    "--기능영역 무시
+***    IF P_FKBER = 'X'.
+***      CLEAR GS_OUTTAB-FKBER.
+***    ENDIF.
+**
+**    "지시자: 계정이 대차대조표 계정입니까 ?
+**    SELECT SINGLE XBILK INTO GS_OUTTAB-XBILK FROM SKA1
+**      WHERE KTOPL = '1000'
+**        AND SAKNR = GS_OUTTAB-SAKNR.
+**
+**    COLLECT GS_OUTTAB INTO GT_OUTTAB.
+**    CLEAR GS_OUTTAB.
+**
+**  ENDLOOP.
+*
+*ENDFORM.                    " MAIN_DISPLAY
+
+*&---------------------------------------------------------------------*
+*&      Form  EXCEL_FROM_ITAB
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+*FORM EXCEL_FROM_ITAB .
+*
+*  GV_FIELDNAME = SY-TITLE.
+*  CALL FUNCTION 'ZFI_EXCEL_FROM_ITAB'
+*    EXPORTING
+*      IV_FIELDNAME = GV_FIELDNAME
+*      IV_NO_GROUP  = 'X'
+*    TABLES
+*      RT_DATA      = GT_OUTTAB
+*      IT_FIELDCAT  = GT_FIELDCAT.
+*
+*ENDFORM.                    " EXCEL_FROM_ITAB
+*&---------------------------------------------------------------------*
+*&      Form  GET_DATA_FAGLFLEXT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM GET_DATA_FAGLFLEXT .
+
+  DATA : LS_FAGLFLEXT LIKE FAGLFLEXT,
+         LT_FAGLFLEXT LIKE FAGLFLEXT OCCURS 0,
+         LV_TSL       TYPE TSLVT12,
+         LV_HSL       TYPE TSLVT12,
+         LV_AMT       TYPE TSLVT12,
+         LV_XBILK     TYPE XBILK,
+         LV_MON(2)    TYPE N.
+
+  "-- 관리회계전표 제외
+  CLEAR S_AWTYP2[].
+  IF P_AWTYP = 'X'.
+    CONCATENATE 'EEQ' 'COBK' INTO S_AWTYP2.
+    APPEND S_AWTYP2.
+  ENDIF.
+
+
+
+  "<-- 2014.12.04 by FII02(WBS그룹))
+  PERFORM GET_WBSGRP.
+  "<-- 2014.12.04 by FII02(CCTR그룹))
+  PERFORM GET_PCGRP.
+
+DATA : L_SUBRC TYPE SY-SUBRC.
+DATA : LS_SEGMENT TYPE GTY_SEGMENT.
+CLEAR : L_SUBRC, GT_SEGMENT[], LS_SEGMENT.
+  PERFORM CHECK_G_CODE CHANGING L_SUBRC .
+
+LV_MON = P_SPMON+4(2).
+  IF L_SUBRC = '4'.
+
+    IF S_PSPID[] IS INITIAL.
+      SELECT * INTO TABLE GT_SEGMENT
+      FROM PROJ
+      WHERE PROFL = 'ZPS0100'.
+      IF SY-SUBRC = 0.
+          S_PSPID-SIGN = 'I'.
+    S_PSPID-OPTION = 'EQ'.
+
+    LOOP AT GT_SEGMENT INTO LS_SEGMENT.
+      S_PSPID-LOW = LS_SEGMENT-PSPID.
+      S_PSPID-HIGH = LS_SEGMENT-PSPID.
+      APPEND S_PSPID.
+      CLEAR LS_SEGMENT.
+    ENDLOOP.
+     ENDIF.
+           SELECT * INTO TABLE LT_FAGLFLEXT
+           FROM FAGLFLEXT
+          WHERE RYEAR  = P_SPMON+0(4)
+            AND RLDNR  = '0L'
+            AND RBUKRS = P_BUKRS
+            AND RACCT   IN S_HKONT
+            AND RACCT   IN S_SAKNR
+            AND RBUSA   IN S_GSBER
+            AND RFAREA  IN S_RFAREA
+            AND PRCTR   IN S_PRCTR
+            AND SEGMENT NOT IN S_PSPID
+            AND AWTYP   IN S_AWTYP2.
+
+    ELSE.
+
+      SELECT * INTO TABLE GT_SEGMENT
+      FROM PROJ
+      WHERE PROFL = 'ZPS0100'.
+
+     IF SY-UNAME <> '15022302'.
+
+      LOOP AT S_PSPID.
+         READ TABLE GT_SEGMENT INTO LS_SEGMENT
+          WITH KEY PSPID = S_PSPID-LOW.
+         IF SY-SUBRC = 0.
+           MESSAGE E000 WITH '부서코드는 조회 불가합니다.'.
+         ENDIF.
+      ENDLOOP.
+      ENDIF.
+
+      SELECT * INTO TABLE LT_FAGLFLEXT
+           FROM FAGLFLEXT
+          WHERE RYEAR  = P_SPMON+0(4)
+            AND RLDNR  = '0L'
+            AND RBUKRS = P_BUKRS
+            AND RACCT   IN S_HKONT
+            AND RACCT   IN S_SAKNR
+            AND RBUSA   IN S_GSBER
+            AND RFAREA  IN S_RFAREA
+            AND PRCTR   IN S_PRCTR
+            AND SEGMENT IN S_PSPID
+            AND AWTYP   IN S_AWTYP2.
+
+  ENDIF.
+
+  ELSE.
+      SELECT * INTO TABLE LT_FAGLFLEXT
+           FROM FAGLFLEXT
+          WHERE RYEAR  = P_SPMON+0(4)
+            AND RLDNR  = '0L'
+            AND RBUKRS = P_BUKRS
+            AND RACCT   IN S_HKONT
+            AND RACCT   IN S_SAKNR
+            AND RBUSA   IN S_GSBER
+            AND RFAREA  IN S_RFAREA
+            AND PRCTR   IN S_PRCTR
+            AND SEGMENT IN S_PSPID
+            AND AWTYP   IN S_AWTYP2.
+
+  ENDIF.
+
+
+
+
+  LOOP AT LT_FAGLFLEXT INTO LS_FAGLFLEXT.
+
+    CONCATENATE 'LS_FAGLFLEXT-HSL' P_SPMON+4(2) INTO GV_HSL.
+    ASSIGN (GV_HSL) TO <HSL>.
+    CHECK SY-SUBRC = 0 AND <HSL> IS NOT INITIAL.
+
+    GS_OUTTAB-HKONT = LS_FAGLFLEXT-RACCT.
+    GS_OUTTAB-DMBTR = <HSL>.
+
+    LOOP AT GT_ZFIT0044 INTO GS_ZFIT0044
+                        WHERE HKONT     <= GS_OUTTAB-HKONT
+                          AND HKONT_END >= GS_OUTTAB-HKONT.
+      EXIT.
+    ENDLOOP.
+
+    IF GS_ZFIT0044-AS4FLAG = 'X'.
+      GS_OUTTAB-DMBTR = GS_OUTTAB-DMBTR * -1.
+    ENDIF.
+
+    GS_OUTTAB-RFAREA = LS_FAGLFLEXT-RFAREA.
+    GS_OUTTAB-GSBER = LS_FAGLFLEXT-RBUSA.
+    GS_OUTTAB-PRCTR = LS_FAGLFLEXT-PRCTR.
+    GS_OUTTAB-PSPID = LS_FAGLFLEXT-SEGMENT.
+
+    COLLECT GS_OUTTAB INTO GT_OUTTAB.
+
+  ENDLOOP.
+
+  IF P_ZERO = 'X'.
+    DELETE GT_OUTTAB  WHERE DMBTR = 0.
+  ENDIF.
+
+ENDFORM.                    " GET_DATA_FAGLFLEXT
+*&---------------------------------------------------------------------*
+*&      Form  GET_DATA_ZFIT0057
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM GET_DATA_ZFIT0044 .
+
+  "-- GET 계정 지정(매출원가)
+  SELECT HKONT HKONT_END GUBUN AS4FLAG
+        INTO CORRESPONDING FIELDS OF TABLE GT_ZFIT0044
+        FROM ZFIT0044.
+
+  CLEAR S_HKONT[].
+  LOOP AT GT_ZFIT0044 INTO GS_ZFIT0044.
+
+    IF GS_ZFIT0044-HKONT_END IS INITIAL.
+      GS_ZFIT0044-HKONT_END = GS_ZFIT0044-HKONT.
+    ENDIF.
+
+    S_HKONT-SIGN   = 'I'.
+    S_HKONT-OPTION = 'BT'.
+    S_HKONT-LOW    = GS_ZFIT0044-HKONT.
+    S_HKONT-HIGH   = GS_ZFIT0044-HKONT_END.
+    APPEND S_HKONT.
+
+    MODIFY GT_ZFIT0044 FROM GS_ZFIT0044 TRANSPORTING HKONT_END
+                WHERE HKONT = GS_ZFIT0044-HKONT.
+  ENDLOOP.
+
+
+ENDFORM.                    " GET_DATA_ZFIT0057
+*&---------------------------------------------------------------------*
+*&      Form  CALL_SCREEN_0200
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM CALL_SCREEN_0200 .
+
+  CALL SELECTION-SCREEN '0200' STARTING AT 30 1
+                               ENDING   AT 60 8.
+
+  G_OUT_HKONT = PC_HKONT.
+  G_OUT_GSBER = PC_GSBER.
+  G_OUT_PRCTR = PC_PRCTR.
+  G_OUT_PSPID = PC_PSPID.
+  G_OUT_FAREA = PC_FKBER.
+
+  TRANSLATE G_OUT_HKONT USING ' XX '.
+  TRANSLATE G_OUT_GSBER USING ' XX '.
+  TRANSLATE G_OUT_PRCTR USING ' XX '.
+  TRANSLATE G_OUT_PSPID USING ' XX '.
+  TRANSLATE G_OUT_FAREA USING ' XX '.
+
+  DATA : LT_OUTTAB LIKE GS_OUTTAB OCCURS 0,
+         LS_OUTTAB LIKE GS_OUTTAB.
+
+  LT_OUTTAB[] = GT_OUTBAK[].
+
+  CLEAR : GS_OUTTAB, GT_OUTTAB[].
+  LOOP AT LT_OUTTAB INTO LS_OUTTAB.
+
+    MOVE-CORRESPONDING LS_OUTTAB TO GS_OUTTAB.
+
+    IF G_OUT_HKONT = 'X'.
+      CLEAR : GS_OUTTAB-HKONT, GS_OUTTAB-TXT20.
+    ENDIF.
+
+    IF G_OUT_GSBER = 'X'.
+      CLEAR : GS_OUTTAB-GSBER, GS_OUTTAB-GTEXT.
+    ENDIF.
+
+    IF G_OUT_PRCTR = 'X'.
+      CLEAR : GS_OUTTAB-PRCTR, GS_OUTTAB-KTEXT.
+    ENDIF.
+
+    IF G_OUT_PSPID = 'X'.
+      CLEAR : GS_OUTTAB-PSPID, GS_OUTTAB-POST1.
+    ENDIF.
+
+    CLEAR GS_OUTTAB-HKONT2.
+    COLLECT GS_OUTTAB INTO GT_OUTTAB.
+
+  ENDLOOP.
+
+
+  IF GO_DOCKING_CONTAINER IS NOT INITIAL.
+    GO_DOCKING_CONTAINER->FREE( ).
+  ENDIF.
+  CLEAR : GO_DOCKING_CONTAINER, GO_GRID,
+          GO_DOCUMENT, GO_HTML_VIEWER.
+
+
+ENDFORM.                    " CALL_SCREEN_0200
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_POSID
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM DISPLAY_POSID .
+
+  CLEAR : GS_PROJ, GT_PROJ[].
+  LOOP AT GT_OUTBAK INTO GS_OUTBAK.
+    MOVE-CORRESPONDING GS_OUTBAK TO GS_PROJ.
+
+    IF GS_OUTBAK-PSPID IS INITIAL.
+      GS_PROJ-PSPID = C_ZZZZ.
+      GS_PROJ-POST1 = 'N/A'.
+    ENDIF.
+
+    COLLECT GS_PROJ INTO GT_PROJ.
+  ENDLOOP.
+
+  CLEAR: GS_FCAT, GT_FCAT[].
+  PERFORM APPEND_FIELD USING '' 'GU'.
+  PERFORM APPEND_FIELD USING '' 'GUTXT'.
+  PERFORM APPEND_FIELD USING 'X' 'RFAREA'.
+  PERFORM APPEND_FIELD USING ' ' 'GUTOP'.
+  PERFORM APPEND_FIELD USING ' ' 'GUTOP_TXT'.
+  PERFORM APPEND_FIELD USING ' ' 'GUBUN'.
+  PERFORM APPEND_FIELD USING ' ' 'GUBUN_TXT'.
+  PERFORM APPEND_FIELD USING ' ' 'GUBUN2_TXT'.
+  PERFORM APPEND_FIELD USING ' ' 'HKONT'.
+  PERFORM APPEND_FIELD USING ' ' 'TXT20'.
+
+
+  PERFORM APPEND_FIELD_CURR USING 'TOTAL'.
+
+  SORT GT_PROJ BY PSPID.
+  LOOP AT GT_PROJ INTO GS_PROJ .
+    PERFORM APPEND_FIELD_CURR USING GS_PROJ-PSPID.
+  ENDLOOP.
+
+*> 테이블 생성
+  DATA: LT_TABLE TYPE REF TO DATA,
+        LS_TABLE TYPE REF TO DATA.
+
+  CALL METHOD CL_ALV_TABLE_CREATE=>CREATE_DYNAMIC_TABLE
+    EXPORTING
+      IT_FIELDCATALOG = GT_FCAT
+    IMPORTING
+      EP_TABLE        = LT_TABLE.
+  ASSIGN LT_TABLE->* TO <TABLE>.
+
+  CREATE DATA LS_TABLE LIKE LINE OF <TABLE>.
+  ASSIGN LS_TABLE->* TO <LS_TABLE>.
+  CHECK SY-SUBRC = 0.
+
+  "-- 화면 보여줄 데이타 생성
+  LOOP AT GT_OUTBAK INTO GS_OUTBAK.
+
+    IF GS_OUTBAK-PSPID IS INITIAL.
+      GS_OUTBAK-PSPID = C_ZZZZ.
+    ENDIF.
+
+    MOVE-CORRESPONDING GS_OUTBAK TO <LS_TABLE>.
+
+    CONCATENATE '<LS_TABLE>-' GS_OUTBAK-PSPID INTO GV_FNAME.
+    ASSIGN (GV_FNAME) TO <FS>.
+    CHECK SY-SUBRC = 0.
+    <FS> = GS_OUTBAK-DMBTR.
+
+    CONCATENATE '<LS_TABLE>-' 'TOTAL' INTO GV_FNAME.
+    ASSIGN (GV_FNAME) TO <FS>.
+    CHECK SY-SUBRC = 0.
+    <FS> = GS_OUTBAK-DMBTR.
+
+    COLLECT <LS_TABLE> INTO <TABLE>. CLEAR <LS_TABLE>.
+
+  ENDLOOP.
+
+  CALL SCREEN 0300.
+
+ENDFORM.                    " DISPLAY_POSID
+*&---------------------------------------------------------------------*
+*&      Form  APPEND_FIELD
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_1153   text
+*----------------------------------------------------------------------*
+FORM APPEND_FIELD  USING PV_NO_OUT
+                          PV_FIELDNAME.
+
+  CLEAR GS_FCAT.
+  GS_FCAT-FIELDNAME = PV_FIELDNAME.
+  GS_FCAT-INTTYPE   = 'C'.
+  GS_FCAT-DATATYPE  = 'CHAR'.
+  GS_FCAT-INTLEN    = 50.
+  GS_FCAT-OUTPUTLEN = 50.
+  GS_FCAT-NO_OUT    = PV_NO_OUT.
+  APPEND GS_FCAT TO GT_FCAT.
+
+ENDFORM.                    " APPEND_FIELD
+*&---------------------------------------------------------------------*
+*&      Form  SET_ALV_GRID_0300
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM SET_ALV_GRID_0300 .
+
+  "*-1.screen 100# ALV grid
+  GS_VARIANT-REPORT = SY-REPID.
+  G_REPID           = SY-REPID.
+  G_HEIGHT          = 80.
+
+  "** NEW container CREATE
+  IF GO_DOCKING_CONTAINER3 IS INITIAL.
+
+    "*-- create docking container(super container)
+    PERFORM CREATE_DOCKING_CONTAINER
+               USING GO_DOCKING_CONTAINER3
+                     CL_GUI_DOCKING_CONTAINER=>DOCK_AT_TOP 500.
+
+    "*-- create spliter & split container as two part, header & ALV Grid
+    PERFORM SPLIT_CONTAINER2 USING GO_DOCKING_CONTAINER3 G_HEIGHT.
+
+    "*-- set grid Layout
+    PERFORM SET_GRID_LAYOUT   USING
+                  '' 'X' '' 'D' '' '' '' '' '' ''
+                   CHANGING GS_LAYOUT3.
+    GS_LAYOUT3-NO_TOTLINE = 'X'.
+
+    PERFORM REGISTER_EVENT_HANDLER USING GO_GRID3 GO_EVENT_RCVR
+                       '' 'X' '' '' '' '' '' '' '' '' ''.
+
+    SET HANDLER GO_EVENT_RCVR->HANDLE_SUBTOTAL_TEXT2 FOR GO_GRID3.
+
+    "*-- set Fieldcatalog
+    PERFORM SET_GRID_FIELDCATALOG3 TABLES GT_FIELDCAT3[].
+
+    "*-- set sort
+    PERFORM SET_ALV_SORT3 TABLES GT_SORT3[].
+
+    "*-- display ALV list
+    PERFORM DISPLAY_ALV_GRID   USING '<TABLE>'
+                                      GO_GRID3
+                                      GS_VARIANT
+                                      GS_LAYOUT3
+                                      GT_EXCLUDE[]
+                                      GT_FIELDCAT3[]
+                                      GT_SORT3[].
+  ENDIF.
+
+
+ENDFORM.                    " SET_ALV_GRID_0300
+*&---------------------------------------------------------------------*
+*&      Form  SET_GRID_FIELDCATALOG3
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GT_FIELDCAT3[]  text
+*----------------------------------------------------------------------*
+FORM SET_GRID_FIELDCATALOG3
+      TABLES   PT_FIELDCAT STRUCTURE  LVC_S_FCAT.
+
+  DATA : LS_FIELDCAT  TYPE LVC_S_FCAT.
+  DATA : LR_STRDESCR  TYPE REF TO CL_ABAP_STRUCTDESCR ,
+         LT_DFIES     TYPE DDFIELDS,
+         LS_DFIES     TYPE DFIES.
+
+  LR_STRDESCR ?= CL_ABAP_STRUCTDESCR=>DESCRIBE_BY_DATA( <LS_TABLE> ).
+  LT_DFIES = CL_SALV_DATA_DESCR=>READ_STRUCTDESCR( LR_STRDESCR ).
+
+*BREAK-POINT.
+  CLEAR : LS_FIELDCAT, PT_FIELDCAT[].
+  LOOP AT LT_DFIES INTO LS_DFIES.
+    MOVE-CORRESPONDING LS_DFIES TO LS_FIELDCAT .
+
+*
+    LS_FIELDCAT-COL_OPT = 'X'.
+    CASE LS_FIELDCAT-FIELDNAME.
+      WHEN 'GU' OR 'GUTXT'.
+        LS_FIELDCAT-NO_OUT   = 'X'.
+
+      WHEN 'GUTOP_TXT'.
+        LS_FIELDCAT-REPTEXT  = '구분'.
+        LS_FIELDCAT-KEY      = 'X'.
+
+      WHEN 'GUBUN_TXT'.
+        LS_FIELDCAT-REPTEXT  = '중분류'.
+        LS_FIELDCAT-KEY      = 'X'.
+        LS_FIELDCAT-NO_OUT   = 'X'.
+
+
+      WHEN 'GUBUN2_TXT'.
+        LS_FIELDCAT-REPTEXT  = '계정내역'.
+        LS_FIELDCAT-KEY      = 'X'.
+
+      WHEN 'ZCO_CD'.
+        LS_FIELDCAT-REPTEXT  = '법인코드'.
+        LS_FIELDCAT-KEY      = 'X'.
+
+      WHEN 'HKONT' .
+        LS_FIELDCAT-REPTEXT  = '계정명'.
+*        LS_FIELDCAT-KEY      = 'X'.
+        LS_FIELDCAT-NO_OUT   = 'X'.
+
+      WHEN 'TXT20'.
+        LS_FIELDCAT-REPTEXT  = '상세내역'.
+        LS_FIELDCAT-KEY      = 'X'.
+
+      WHEN 'RFAREA'.
+        LS_FIELDCAT-REPTEXT  = '기능영역'.
+*        LS_FIELDCAT-KEY      = 'X'.
+        LS_FIELDCAT-NO_OUT   = 'X'.
+
+      WHEN 'TOTAL'.
+        LS_FIELDCAT-REPTEXT   = '합계'.
+*        LS_FIELDCAT-KEY       = 'X'.
+        LS_FIELDCAT-CURRENCY  = G_WAERS.
+        LS_FIELDCAT-DO_SUM    = 'X'.
+        LS_FIELDCAT-COL_OPT   = ''.
+        LS_FIELDCAT-EMPHASIZE = 'C300'.
+
+*      WHEN 'RFAREA'.
+
+
+      WHEN 'XBILK' OR 'GUTOP' OR 'GUBUN' OR 'WAERS'.
+        LS_FIELDCAT-JUST        = 'C'.
+        LS_FIELDCAT-NO_OUT      = 'X'.
+
+
+      WHEN OTHERS.
+        READ TABLE GT_PROJ INTO GS_PROJ WITH KEY
+                                PSPID = LS_FIELDCAT-FIELDNAME.
+        CHECK SY-SUBRC = 0.
+        IF LS_FIELDCAT-FIELDNAME = C_ZZZZ.
+          LS_FIELDCAT-REPTEXT     = GS_PROJ-POST1.
+        ELSE.
+          CONCATENATE GS_PROJ-PSPID GS_PROJ-POST1 INTO
+                      LS_FIELDCAT-REPTEXT SEPARATED BY SPACE.
+        ENDIF.
+
+        LS_FIELDCAT-CURRENCY = G_WAERS.
+        LS_FIELDCAT-DO_SUM   = 'X'.
+        LS_FIELDCAT-COL_OPT  = ''.
+    ENDCASE.
+
+    LS_FIELDCAT-COLTEXT   = LS_FIELDCAT-REPTEXT.
+    LS_FIELDCAT-SCRTEXT_L = LS_FIELDCAT-REPTEXT.
+    LS_FIELDCAT-SCRTEXT_M = LS_FIELDCAT-REPTEXT.
+    LS_FIELDCAT-SCRTEXT_S = LS_FIELDCAT-REPTEXT.
+
+    APPEND LS_FIELDCAT  TO PT_FIELDCAT . CLEAR LS_FIELDCAT.
+
+  ENDLOOP.
+
+ENDFORM.                    " SET_GRID_FIELDCATALOG3
+*&---------------------------------------------------------------------*
+*&      Form  SPLIT_CONTAINER2
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GO_DOCKING_CONTAINER3  text
+*      -->P_G_HEIGHT  text
+*----------------------------------------------------------------------*
+FORM SPLIT_CONTAINER2  USING
+           PO_DOCKING_CONTAINER TYPE REF TO CL_GUI_DOCKING_CONTAINER
+           PA_HEIGHT.
+
+*-- Create Splitter for custom_container
+  CREATE OBJECT GO_SPLITTER
+    EXPORTING
+      PARENT  = PO_DOCKING_CONTAINER
+      ROWS    = 1
+      COLUMNS = 1.
+
+*-- get top container as header
+  CALL METHOD GO_SPLITTER->GET_CONTAINER
+    EXPORTING
+      ROW       = 1
+      COLUMN    = 1
+    RECEIVING
+      CONTAINER = GO_CONTAINER.
+
+  CHECK GO_GRID3 IS INITIAL.
+  CREATE OBJECT GO_GRID3
+    EXPORTING
+      I_PARENT      = GO_CONTAINER
+      I_APPL_EVENTS = 'X'.
+
+
+ENDFORM.                    " SPLIT_CONTAINER2
+*&---------------------------------------------------------------------*
+*&      Form  APPEND_FIELD_CURR
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GS_PROJ_PSPID  text
+*----------------------------------------------------------------------*
+FORM APPEND_FIELD_CURR   USING  PV_FIELDNAME.
+
+  CLEAR GS_FCAT.
+  GS_FCAT-FIELDNAME = PV_FIELDNAME.
+  GS_FCAT-INTTYPE   = 'P'.
+  GS_FCAT-DATATYPE  = 'CURR'.
+  GS_FCAT-INTLEN    = 17.
+  GS_FCAT-OUTPUTLEN = 17.
+  APPEND GS_FCAT TO GT_FCAT.
+
+ENDFORM.                    " APPEND_FIELD_CURR
+*&---------------------------------------------------------------------*
+*&      Form  SET_ALV_SORT3
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GT_SORT3[]  text
+*----------------------------------------------------------------------*
+FORM SET_ALV_SORT3  TABLES   PT_SORT STRUCTURE LVC_S_SORT.
+
+  DATA : LS_SORT TYPE  LVC_S_SORT,
+         L_POS   TYPE I.
+
+  DEFINE _SORT.
+    CLEAR LS_SORT.
+    L_POS = L_POS + 1.
+    LS_SORT-SPOS      = L_POS.
+    LS_SORT-FIELDNAME = &1.
+    LS_SORT-UP        = &2.
+    LS_SORT-SUBTOT    = &3.
+    LS_SORT-COMP      = &4.
+    LS_SORT-EXPA      = &5.
+    APPEND LS_SORT TO PT_SORT.
+  END-OF-DEFINITION.
+
+
+  _SORT : 'GU'         'X' '' ' ' ' ',
+          'GUTXT'      'X' 'X' ' ' ' ',
+          'RFAREA'     'X' '' ' ' ' ',
+          'GUTOP'      'X' '' ' ' ' ',
+          'GUTOP_TXT'  'X' 'X' ' ' ' ',
+          'GUBUN'      'X' '' ' ' ' ',
+          'HKONT'      'X' '' ' ' ' ',
+          'GUBUN_TXT'  'X' '' ' ' ' ',
+          'GUBUN2_TXT' 'X' '' ' ' ' ',
+          'TXT20'      'X' '' ' ' ' '.
+
+
+ENDFORM.                    " SET_ALV_SORT3
+*&---------------------------------------------------------------------*
+*&      Form  EXCEL_FROM_ITAB
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM EXCEL_FROM_ITAB .
+
+  CASE SY-DYNNR.
+    WHEN '0100'.
+      CALL FUNCTION 'ZFI_EXCEL_FROM_ITAB'
+        TABLES
+          RT_DATA     = GT_OUTTAB
+          IT_FIELDCAT = GT_FIELDCAT.
+
+    WHEN '0300'.
+      CALL FUNCTION 'ZFI_EXCEL_FROM_ITAB'
+        TABLES
+          RT_DATA     = <TABLE>
+          IT_FIELDCAT = GT_FIELDCAT3.
+
+  ENDCASE.
+
+ENDFORM.                    " EXCEL_FROM_ITAB
+*&---------------------------------------------------------------------*
+*&      Form  APPEND_OUTBAK
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM APPEND_OUTBAK .
+
+  SORT GT_OUTTAB
+    BY GUTOP GUBUN  GSBER PRCTR PSPID HKONT.
+
+  GT_OUTBAK[] = GT_OUTTAB[].
+
+  G_OUT_HKONT = PC_HKONT.
+  G_OUT_GSBER = PC_GSBER.
+  G_OUT_PRCTR = PC_PRCTR.
+  G_OUT_PSPID = PC_PSPID.
+  G_OUT_FAREA = PC_FKBER.
+
+  TRANSLATE G_OUT_HKONT USING ' XX '.
+  TRANSLATE G_OUT_GSBER USING ' XX '.
+  TRANSLATE G_OUT_PRCTR USING ' XX '.
+  TRANSLATE G_OUT_PSPID USING ' XX '.
+  TRANSLATE G_OUT_FAREA USING ' XX '.
+
+  CLEAR GT_OUTTAB[].
+
+  LOOP AT GT_OUTBAK INTO GS_OUTBAK.
+
+    MOVE-CORRESPONDING GS_OUTBAK TO GS_OUTTAB.
+
+    IF PC_GSBER = SPACE.
+      CLEAR :GS_OUTTAB-GSBER, GS_OUTTAB-GTEXT.
+    ENDIF.
+
+    IF PC_FKBER = SPACE.
+      CLEAR :GS_OUTTAB-RFAREA.
+    ENDIF.
+
+    IF PC_PRCTR = SPACE.
+      CLEAR :GS_OUTTAB-PRCTR, GS_OUTTAB-KTEXT.
+    ENDIF.
+
+    IF PC_PSPID = SPACE.
+      CLEAR :GS_OUTTAB-PSPID, GS_OUTTAB-POST1.
+    ENDIF.
+
+    CLEAR GS_OUTTAB-HKONT2.
+    COLLECT GS_OUTTAB INTO GT_OUTTAB.
+    CLEAR GS_OUTTAB.
+
+  ENDLOOP.
+
+ENDFORM.                    " APPEND_OUTBAK
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_SUBTOTAL_TEXT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM HANDLE_SUBTOTAL_TEXT  CHANGING
+         P_ES_SUBTOTTXT_INFO_R TYPE  LVC_S_STXT
+         P_EP_SUBTOT_LINE_R    TYPE REF TO  DATA
+         E_EVENT_DATA          TYPE REF TO CL_ALV_EVENT_DATA.
+
+  DATA: L_FIELD(50), L_FIELD2(50).
+  FIELD-SYMBOLS: <FS1>       TYPE ANY,      "report structure
+                 <FS_FIELD>  TYPE ANY,
+                 <FS_FIELD2> TYPE ANY.      "field of structure
+
+  ASSIGN P_EP_SUBTOT_LINE_R TO <FS1>.
+  CHECK SY-SUBRC = 0.
+
+  L_FIELD = '<FS1>->GU'.
+  ASSIGN (L_FIELD) TO <FS_FIELD>.
+  CHECK SY-SUBRC = 0.
+
+  L_FIELD2 = '<FS1>->DMBTR'.
+  ASSIGN (L_FIELD2) TO <FS_FIELD2>.
+  CHECK SY-SUBRC = 0.
+
+  CASE <FS_FIELD>.
+    WHEN 'A'.
+    WHEN 'B'.
+    WHEN 'C'.  "매출원가(경비)
+      "매출액 - 매출원가 - 매출원가(경비)
+      CLEAR <FS_FIELD2>.
+      LOOP AT GT_OUTTAB INTO GS_OUTTAB.
+        CASE GS_OUTTAB-GU.
+          WHEN 'A'.
+            <FS_FIELD2> = <FS_FIELD2> + GS_OUTTAB-DMBTR.
+
+          WHEN 'B' OR 'C'.
+            <FS_FIELD2> = <FS_FIELD2> - GS_OUTTAB-DMBTR.
+
+          WHEN 'D'. CONTINUE.
+        ENDCASE.
+      ENDLOOP.
+
+    WHEN 'D'.
+      "매출액 - 매출원가 - 매출원가(경비) - 판관비
+      CLEAR <FS_FIELD2>.
+      LOOP AT GT_OUTTAB INTO GS_OUTTAB.
+        CASE GS_OUTTAB-GU.
+          WHEN 'A'.
+            <FS_FIELD2> = <FS_FIELD2> + GS_OUTTAB-DMBTR.
+
+          WHEN 'B' OR 'C' OR 'D'.
+            <FS_FIELD2> = <FS_FIELD2> - GS_OUTTAB-DMBTR.
+
+        ENDCASE.
+      ENDLOOP.
+
+  ENDCASE.
+
+ENDFORM.                    " HANDLE_SUBTOTAL_TEXT
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_SUBTOTAL_TEXT2
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM HANDLE_SUBTOTAL_TEXT2  CHANGING
+         P_ES_SUBTOTTXT_INFO_R TYPE  LVC_S_STXT
+         P_EP_SUBTOT_LINE_R    TYPE REF TO  DATA
+         E_EVENT_DATA          TYPE REF TO CL_ALV_EVENT_DATA.
+
+  DATA: L_FIELD(50), L_FIELD2(50).
+  FIELD-SYMBOLS: <FS1>       TYPE ANY,      "report structure
+                 <FS_FIELD>  TYPE ANY,
+                 <FS_FIELD2> TYPE ANY.      "field of structure
+
+  ASSIGN P_EP_SUBTOT_LINE_R TO <FS1>.
+  CHECK SY-SUBRC = 0.
+
+  L_FIELD = '<FS1>->GU'.
+  ASSIGN (L_FIELD) TO <FS_FIELD>.
+  CHECK SY-SUBRC = 0.
+
+  CASE <FS_FIELD>.
+    WHEN 'A'.
+    WHEN 'B'.
+    WHEN 'C'.
+      CONCATENATE '<FS1>->' 'TOTAL' INTO L_FIELD2.
+      ASSIGN (L_FIELD2) TO <FS_FIELD2>.
+      CHECK SY-SUBRC = 0.
+
+      PERFORM MODIFY_TOTAL USING 'D' 'TOTAL' CHANGING <FS_FIELD2>.
+
+      LOOP AT GT_PROJ INTO GS_PROJ .
+        CONCATENATE '<FS1>->' GS_PROJ-PSPID INTO L_FIELD2.
+        ASSIGN (L_FIELD2) TO <FS_FIELD2>.
+        CHECK SY-SUBRC = 0.
+        PERFORM MODIFY_TOTAL USING 'D' GS_PROJ-PSPID CHANGING <FS_FIELD2>.
+      ENDLOOP.
+
+    WHEN 'D'.
+      CONCATENATE '<FS1>->' 'TOTAL' INTO L_FIELD2.
+      ASSIGN (L_FIELD2) TO <FS_FIELD2>.
+      CHECK SY-SUBRC = 0.
+
+      PERFORM MODIFY_TOTAL USING '' 'TOTAL' CHANGING <FS_FIELD2>.
+
+      LOOP AT GT_PROJ INTO GS_PROJ .
+        CONCATENATE '<FS1>->' GS_PROJ-PSPID INTO L_FIELD2.
+        ASSIGN (L_FIELD2) TO <FS_FIELD2>.
+        CHECK SY-SUBRC = 0.
+        PERFORM MODIFY_TOTAL USING '' GS_PROJ-PSPID CHANGING <FS_FIELD2>.
+      ENDLOOP.
+
+  ENDCASE.
+
+
+ENDFORM.                    " HANDLE_SUBTOTAL_TEXT2
+*&---------------------------------------------------------------------*
+*&      Form  MODIFY_TOTAL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      <--P_<FS_FIELD2>  text
+*----------------------------------------------------------------------*
+FORM MODIFY_TOTAL  USING PV_GU
+                         PV_FIELD
+                CHANGING PV_VALUE.
+
+  DATA: L_FIELD(50), L_FIELD2(50).
+  FIELD-SYMBOLS: <FS1>       TYPE ANY,      "report structure
+                 <FS_FIELD>  TYPE ANY,
+                 <FS_FIELD2> TYPE ANY.      "field of structure
+
+  L_FIELD = '<LS_TABLE>-GU'.
+  ASSIGN (L_FIELD) TO <FS_FIELD>.
+  CHECK SY-SUBRC = 0.
+
+  CONCATENATE '<LS_TABLE>-' PV_FIELD INTO L_FIELD2.
+  ASSIGN (L_FIELD2) TO <FS_FIELD2>.
+  CHECK SY-SUBRC = 0.
+
+  CLEAR PV_VALUE.
+  LOOP AT <TABLE> INTO <LS_TABLE>.
+    CHECK <FS_FIELD> NE PV_GU.
+
+    CASE <FS_FIELD>.
+      WHEN 'A'.
+        PV_VALUE = PV_VALUE +  <FS_FIELD2>.
+
+      WHEN 'B' OR 'C' OR 'D'.
+        PV_VALUE = PV_VALUE -  <FS_FIELD2>.
+
+    ENDCASE.
+
+  ENDLOOP.
+
+ENDFORM.                    " MODIFY_TOTAL
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_DETAIL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM DISPLAY_DETAIL USING       PV_GU PV_GUTOP PV_GUBUN PV_GUBUN2_TXT
+                                 PV_HKONT
+                                 PV_GSBER
+                                 PV_PRCTR
+                                 PV_PSPID
+                                 PV_CHECK.
+
+  "급여계정 권한체크 2013.12.06
+  DATA : L_SUBRC TYPE SY-SUBRC.
+  IF PV_CHECK = ''.
+    PERFORM CHECK_AGR_USERS USING PV_HKONT CHANGING L_SUBRC.
+    CHECK L_SUBRC IS INITIAL.
+  ENDIF.
+
+
+  DATA : LT_FAGLFLEXA LIKE FAGLFLEXA OCCURS 0,
+         LS_FAGLFLEXA LIKE FAGLFLEXA.
+
+  CLEAR : S_PRCTR2[], S_RBUSA2[], S_POSID2[].
+
+  IF PV_GSBER IS NOT  INITIAL.
+    CONCATENATE 'IEQ' PV_GSBER INTO S_RBUSA2.
+    APPEND S_RBUSA2.
+  ENDIF.
+
+  IF PV_PRCTR IS NOT INITIAL.
+    CONCATENATE 'IEQ' PV_PRCTR INTO S_PRCTR2.
+    APPEND S_PRCTR2.
+  ENDIF.
+
+  IF PV_PSPID IS NOT INITIAL.
+    CONCATENATE 'IEQ' PV_PSPID INTO S_POSID2.
+    APPEND S_POSID2.
+  ENDIF.
+
+  IF PV_PSPID = 'ZZZZ'.
+    CLEAR S_POSID2[].
+    CONCATENATE 'IEQ' '' INTO S_POSID2.
+    APPEND S_POSID2.
+  ENDIF.
+
+  "-- 계정 지정(매출원가)
+  CLEAR S_HKONT2[].
+  LOOP AT GT_OUTBAK INTO GS_OUTBAK.
+    IF PV_CHECK = ''.
+      CHECK GS_OUTBAK-GU    = PV_GU
+        AND GS_OUTBAK-GUTOP = PV_GUTOP
+        AND GS_OUTBAK-GUBUN = PV_GUBUN
+        AND GS_OUTBAK-GUBUN2_TXT = PV_GUBUN2_TXT
+        AND GS_OUTBAK-HKONT = PV_HKONT.
+    ENDIF.
+
+    CONCATENATE 'IEQ' GS_OUTBAK-HKONT2 INTO S_HKONT2.
+    COLLECT S_HKONT2.
+  ENDLOOP.
+
+  SELECT SINGLE *  FROM AGR_USERS
+          WHERE AGR_NAME IN ('ZFI_01_00', 'ZFI_03_00')
+            AND UNAME = SY-UNAME
+            AND FROM_DAT <= SY-DATUM
+            AND TO_DAT >= SY-DATUM.
+
+  "  PERFORM CHECK_AGR_USERS USING PV_HKONT CHANGING L_SUBRC.
+
+  IF SY-UNAME+0(2) NE 'FI'.
+    IF PV_CHECK = 'X' AND SY-SUBRC NE 0.
+      CONCATENATE 'EBT' '0052000000' '0052999999' INTO S_HKONT2.
+      COLLECT S_HKONT2.
+    ENDIF.
+  ENDIF.
+
+  SELECT * INTO CORRESPONDING FIELDS OF TABLE LT_FAGLFLEXA
+           FROM FAGLFLEXA
+          WHERE RYEAR   EQ P_SPMON+0(4)
+            AND RLDNR   EQ '0L'
+            AND ( RACCT   IN S_HKONT2 AND RACCT   IN S_HKONT )
+            AND ( PRCTR   IN S_PRCTR2 AND PRCTR   IN S_PRCTR )
+            AND ( RBUSA   IN S_RBUSA2 AND RBUSA   IN S_GSBER )
+            AND ( SEGMENT IN S_POSID2 AND SEGMENT IN S_POSID )
+            AND BUDAT   IN S_BUDAT2
+            AND AWTYP   IN S_AWTYP2.
+
+  CLEAR : GS_DETAIL, GT_DETAIL[].
+  LOOP AT LT_FAGLFLEXA INTO LS_FAGLFLEXA.
+    MOVE-CORRESPONDING LS_FAGLFLEXA TO GS_DETAIL.
+
+    LOOP AT GT_ZFIT0044 INTO GS_ZFIT0044
+                       WHERE HKONT     <= GS_DETAIL-RACCT
+                         AND HKONT_END >= GS_DETAIL-RACCT.
+      EXIT.
+    ENDLOOP.
+
+    IF GS_ZFIT0044-AS4FLAG = 'X'.
+      GS_DETAIL-TSL  = GS_DETAIL-TSL  * -1.
+      GS_DETAIL-HSL  = GS_DETAIL-HSL  * -1.
+    ENDIF.
+
+    PERFORM GET_HKONT_TEXT(ZFIFORMS) USING '1000'
+                              GS_DETAIL-RACCT
+                              GS_DETAIL-RATXT.
+
+    PERFORM GET_PRCTR_TEXT(ZFIFORMS) USING '1000'
+                                         GS_DETAIL-PRCTR
+                                          SY-DATUM
+                                          GS_DETAIL-PRTXT.
+    CALL METHOD ZCL_FI_COMM=>READ_PROJ_ZZLIFZS
+      EXPORTING
+        IV_PSPID = GS_DETAIL-SEGMENT
+      IMPORTING
+        EV_POST1 = GS_DETAIL-POST1.
+
+
+    SELECT SINGLE SGTXT ZKUNNR ZLIFNR
+      INTO (GS_DETAIL-SGTXT, GS_DETAIL-ZKUNNR, GS_DETAIL-ZLIFNR)
+      FROM BSEG
+      WHERE BELNR = GS_DETAIL-DOCNR
+      AND GJAHR = GS_DETAIL-RYEAR
+      AND BUKRS = '1000'
+      AND BUZEI = LS_FAGLFLEXA-BUZEI.
+
+    PERFORM GET_KUNNR_TEXT(ZFIFORMS) USING GS_DETAIL-ZKUNNR
+              GS_DETAIL-ZKUNNRT.
+
+
+    PERFORM GET_LIFNR_TEXT(ZFIFORMS) USING GS_DETAIL-ZLIFNR
+              GS_DETAIL-ZLIFNRT.
+
+
+
+    APPEND GS_DETAIL TO GT_DETAIL.
+  ENDLOOP.
+
+  CHECK PV_CHECK = ''.
+  IF GO_DOCKING_CONTAINER4 IS NOT INITIAL.
+    GO_DOCKING_CONTAINER4->FREE( ).
+  ENDIF.
+  CLEAR : GO_DOCKING_CONTAINER4, GO_GRID4.
+
+  CALL SCREEN 0400.
+
+ENDFORM.                    " DISPLAY_DETAIL
+*&---------------------------------------------------------------------*
+*&      Form  SET_ALV_GRID_0400
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM SET_ALV_GRID_0400 .
+
+  "*-1.screen 100# ALV grid
+  GS_VARIANT-REPORT = SY-REPID.
+  G_REPID           = SY-REPID.
+  G_HEIGHT          = 80.
+
+  "** NEW container CREATE
+  IF GO_DOCKING_CONTAINER4 IS INITIAL.
+
+    "*-- create docking container(super container)
+    PERFORM CREATE_DOCKING_CONTAINER
+               USING GO_DOCKING_CONTAINER4
+                     CL_GUI_DOCKING_CONTAINER=>DOCK_AT_TOP 500.
+
+    "*-- create spliter & split container as two part, header & ALV Grid
+    PERFORM SPLIT_CONTAINER4 USING GO_DOCKING_CONTAINER4 G_HEIGHT.
+
+    "*-- set grid Layout
+    PERFORM SET_GRID_LAYOUT   USING
+                  '' 'X' '' 'D' '' '' '' '' '' ''
+                   CHANGING GS_LAYOUT4.
+
+    PERFORM REGISTER_EVENT_HANDLER USING GO_GRID4 GO_EVENT_RCVR
+                    '' 'X' '' '' '' '' '' '' '' '' ''.
+
+    "*-- set Fieldcatalog
+    PERFORM SET_GRID_FIELDCATALOG4 TABLES GT_FIELDCAT4[].
+
+    "*-- set sort
+    PERFORM SET_ALV_SORT4 TABLES GT_SORT4[].
+
+    "*-- display ALV list
+    PERFORM DISPLAY_ALV_GRID   USING 'GT_DETAIL'
+                                      GO_GRID4
+                                      GS_VARIANT4
+                                      GS_LAYOUT4
+                                      GT_EXCLUDE[]
+                                      GT_FIELDCAT4[]
+                                      GT_SORT4[].
+  ENDIF.
+
+ENDFORM.                    " SET_ALV_GRID_0400
+*&---------------------------------------------------------------------*
+*&      Form  SPLIT_CONTAINER4
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GO_DOCKING_CONTAINER4  text
+*      -->P_G_HEIGHT  text
+*----------------------------------------------------------------------*
+FORM SPLIT_CONTAINER4   USING
+           PO_DOCKING_CONTAINER TYPE REF TO CL_GUI_DOCKING_CONTAINER
+           PA_HEIGHT.
+
+*-- Create Splitter for custom_container
+  CREATE OBJECT GO_SPLITTER
+    EXPORTING
+      PARENT  = PO_DOCKING_CONTAINER
+      ROWS    = 1
+      COLUMNS = 1.
+
+*-- get top container as header
+  CALL METHOD GO_SPLITTER->GET_CONTAINER
+    EXPORTING
+      ROW       = 1
+      COLUMN    = 1
+    RECEIVING
+      CONTAINER = GO_CONTAINER.
+
+  CHECK GO_GRID4 IS INITIAL.
+  CREATE OBJECT GO_GRID4
+    EXPORTING
+      I_PARENT      = GO_CONTAINER
+      I_APPL_EVENTS = 'X'.
+
+
+ENDFORM.                    " SPLIT_CONTAINER4
+*&---------------------------------------------------------------------*
+*&      Form  SET_GRID_FIELDCATALOG4
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GT_FIELDCAT4[]  text
+*----------------------------------------------------------------------*
+FORM SET_GRID_FIELDCATALOG4
+         TABLES   PT_FIELDCAT STRUCTURE  LVC_S_FCAT.
+
+  DATA : LS_FIELDCAT  TYPE LVC_S_FCAT.
+  DATA : LR_STRDESCR  TYPE REF TO CL_ABAP_STRUCTDESCR ,
+         LT_DFIES     TYPE DDFIELDS,
+         LS_DFIES     TYPE DFIES.
+
+  LR_STRDESCR ?= CL_ABAP_STRUCTDESCR=>DESCRIBE_BY_DATA( GS_DETAIL ).
+  LT_DFIES = CL_SALV_DATA_DESCR=>READ_STRUCTDESCR( LR_STRDESCR ).
+
+*BREAK-POINT.
+  CLEAR : LS_FIELDCAT, PT_FIELDCAT[].
+  LOOP AT LT_DFIES INTO LS_DFIES.
+    MOVE-CORRESPONDING LS_DFIES TO LS_FIELDCAT .
+
+*
+    LS_FIELDCAT-COL_OPT = 'X'.
+    CASE LS_FIELDCAT-FIELDNAME.
+      WHEN 'RYEAR' OR 'DOCNR'.
+        LS_FIELDCAT-KEY      = 'X'.
+*
+*      WHEN 'GUTOP_TXT'.
+*        LS_FIELDCAT-REPTEXT  = '대분류'.
+*        LS_FIELDCAT-KEY      = 'X'.
+*
+*      WHEN 'GUBUN_TXT'.
+*        LS_FIELDCAT-REPTEXT  = '중분류'.
+*        LS_FIELDCAT-KEY      = 'X'.
+*
+*      WHEN 'GUBUN2_TXT'.
+*        LS_FIELDCAT-REPTEXT  = '소분류'.
+*        LS_FIELDCAT-KEY      = 'X'.
+*
+*      WHEN 'ZCO_CD'.
+*        LS_FIELDCAT-REPTEXT  = '법인코드'.
+*        LS_FIELDCAT-KEY      = 'X'.
+*
+*      WHEN 'HKONT' .
+*        LS_FIELDCAT-REPTEXT  = '계정명'.
+**        LS_FIELDCAT-KEY      = 'X'.
+*        LS_FIELDCAT-NO_OUT   = 'X'.
+*
+*      WHEN 'TXT20'.
+*        LS_FIELDCAT-REPTEXT  = '계정내역'.
+*        LS_FIELDCAT-KEY      = 'X'.
+*
+*      WHEN 'RFAREA'.
+*        LS_FIELDCAT-REPTEXT  = '기능영역'.
+**        LS_FIELDCAT-KEY      = 'X'.
+*        LS_FIELDCAT-NO_OUT   = 'X'.
+*
+      WHEN 'ZKUNNRT'.
+        LS_FIELDCAT-REPTEXT   = '고객명'.
+
+      WHEN 'ZLIFNRT'.
+        LS_FIELDCAT-REPTEXT   = '공급업체명'.
+
+      WHEN 'TSL'.
+*        LS_FIELDCAT-REPTEXT   = '합계'.
+**        LS_FIELDCAT-KEY       = 'X'.
+        LS_FIELDCAT-CFIELDNAME = 'RWCUR'.
+        LS_FIELDCAT-DO_SUM    = 'X'.
+*        LS_FIELDCAT-COL_OPT   = ''.
+        LS_FIELDCAT-EMPHASIZE = 'C300'.
+
+      WHEN 'HSL'.
+        LS_FIELDCAT-CURRENCY  = G_WAERS.
+        LS_FIELDCAT-DO_SUM    = 'X'.
+        LS_FIELDCAT-EMPHASIZE = 'C300'.
+**      WHEN 'RFAREA'.
+*
+*
+*      WHEN 'XBILK' OR 'GUTOP' OR 'GUBUN' OR 'WAERS'.
+*        LS_FIELDCAT-JUST        = 'C'.
+*        LS_FIELDCAT-NO_OUT      = 'X'.
+*
+*
+*      WHEN OTHERS.
+*        READ TABLE GT_PROJ INTO GS_PROJ WITH KEY
+*                                PSPID = LS_FIELDCAT-FIELDNAME.
+*        CHECK SY-SUBRC = 0.
+*        IF LS_FIELDCAT-FIELDNAME = C_ZZZZ.
+*          LS_FIELDCAT-REPTEXT     = GS_PROJ-POST1.
+*        ELSE.
+*          CONCATENATE GS_PROJ-PSPID GS_PROJ-POST1 INTO
+*                      LS_FIELDCAT-REPTEXT SEPARATED BY SPACE.
+*        ENDIF.
+*
+*        LS_FIELDCAT-CURRENCY = G_WAERS.
+*        LS_FIELDCAT-DO_SUM   = 'X'.
+*        LS_FIELDCAT-COL_OPT  = ''.
+    ENDCASE.
+
+    LS_FIELDCAT-COLTEXT   = LS_FIELDCAT-REPTEXT.
+    LS_FIELDCAT-SCRTEXT_L = LS_FIELDCAT-REPTEXT.
+    LS_FIELDCAT-SCRTEXT_M = LS_FIELDCAT-REPTEXT.
+    LS_FIELDCAT-SCRTEXT_S = LS_FIELDCAT-REPTEXT.
+
+    APPEND LS_FIELDCAT  TO PT_FIELDCAT . CLEAR LS_FIELDCAT.
+
+  ENDLOOP.
+
+
+ENDFORM.                    " SET_GRID_FIELDCATALOG4
+*&---------------------------------------------------------------------*
+*&      Form  SET_ALV_SORT4
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GT_SORT4[]  text
+*----------------------------------------------------------------------*
+FORM SET_ALV_SORT4  TABLES   PT_SORT STRUCTURE LVC_S_SORT.
+
+  DATA : LS_SORT TYPE  LVC_S_SORT,
+         L_POS   TYPE I.
+
+  DEFINE _SORT.
+    CLEAR LS_SORT.
+    L_POS = L_POS + 1.
+    LS_SORT-SPOS      = L_POS.
+    LS_SORT-FIELDNAME = &1.
+    LS_SORT-UP        = &2.
+    LS_SORT-SUBTOT    = &3.
+    LS_SORT-COMP      = &4.
+    LS_SORT-EXPA      = &5.
+    APPEND LS_SORT TO PT_SORT.
+  END-OF-DEFINITION.
+
+  _SORT : 'DOCNR'      'X' '' ' ' ' '.
+
+ENDFORM.                    " SET_ALV_SORT4
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_AGR_USERS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM CHECK_AGR_USERS USING PV_HKONT CHANGING PV_SUBRC.
+  CLEAR PV_SUBRC.
+  IF PV_HKONT = '00520' AND SY-UNAME+0(2) NE 'FI'.
+    SELECT SINGLE *
+      FROM AGR_USERS
+      WHERE AGR_NAME IN ('ZFI_01_00', 'ZFI_03_00')
+      AND UNAME = SY-UNAME
+      AND FROM_DAT <= SY-DATUM
+      AND TO_DAT >= SY-DATUM.
+
+    IF SY-SUBRC = 0.
+      CLEAR PV_SUBRC.
+    ELSE.
+      PV_SUBRC = 4.
+    ENDIF.
+  ENDIF.
+ENDFORM.                    " CHECK_AGR_USERS
+*&---------------------------------------------------------------------*
+*&      Form  EXCEL_DOWN
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM EXCEL_DOWN .
+
+  PERFORM SET_GRID_FIELDCATALOG4 TABLES GT_FIELDCAT4[].
+  PERFORM DISPLAY_DETAIL USING  '' '' '' '' ''
+                                   ''  '' '' 'X'.
+*PERFORM append_gt_detail.
+
+  CALL FUNCTION 'ZFI_EXCEL_FROM_ITAB'
+    TABLES
+      RT_DATA     = GT_DETAIL
+      IT_FIELDCAT = GT_FIELDCAT4.
+
+ENDFORM.                    " EXCEL_DOWN
+*&---------------------------------------------------------------------*
+*&      Form  APPEND_GT_DETAIL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM APPEND_GT_DETAIL .
+
+*  SELECT * INTO CORRESPONDING FIELDS OF TABLE lt_faglflexa
+*           FROM faglflexa
+*          WHERE ryear   EQ p_spmon+0(4)
+*            AND rldnr   EQ '0L'
+*            AND racct   IN s_hkont2
+*            AND prctr   IN s_prctr2
+*            AND rbusa   IN s_rbusa2
+*            AND segment IN s_posid2
+*            AND budat   IN s_budat2
+*            AND awtyp   IN s_awtyp2.
+*
+*  CLEAR : gs_detail, gt_detail[].
+*  LOOP AT lt_faglflexa INTO ls_faglflexa.
+*    MOVE-CORRESPONDING ls_faglflexa TO gs_detail.
+*
+*    LOOP AT gt_zfit0044 INTO gs_zfit0044
+*                       WHERE hkont     <= gs_detail-racct
+*                         AND hkont_end >= gs_detail-racct.
+*      EXIT.
+*    ENDLOOP.
+*
+*    IF gs_zfit0044-as4flag = 'X'.
+*      gs_detail-tsl  = gs_detail-tsl  * -1.
+*      gs_detail-hsl  = gs_detail-hsl  * -1.
+*    ENDIF.
+*
+*    PERFORM get_hkont_text(zfiforms) USING '1000'
+*                              gs_detail-racct
+*                              gs_detail-ratxt.
+*
+*    PERFORM get_prctr_text(zfiforms) USING '1000'
+*                                         gs_detail-prctr
+*                                          sy-datum
+*                                          gs_detail-prtxt.
+*    CALL METHOD zcl_fi_comm=>read_proj_zzlifzs
+*      EXPORTING
+*        iv_pspid = gs_detail-segment
+*      IMPORTING
+*        ev_post1 = gs_detail-post1.
+*
+*
+*    SELECT SINGLE sgtxt INTO gs_detail-sgtxt
+*      FROM bseg
+*      WHERE belnr = gs_detail-docnr
+*      AND gjahr = gs_detail-ryear
+*      AND bukrs = '1000'
+*      AND buzei = ls_faglflexa-buzei.
+*
+*
+*    APPEND gs_detail TO gt_detail.
+*  ENDLOOP.
+
+
+ENDFORM.                    " APPEND_GT_DETAIL
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_AGR_USERS2
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_PV_HKONT  text
+*      <--P_L_SUBRC  text
+*----------------------------------------------------------------------*
+FORM CHECK_AGR_USERS2  USING    P_PV_HKONT
+                       CHANGING P_L_SUBRC.
+
+ENDFORM.                    " CHECK_AGR_USERS2
+*&---------------------------------------------------------------------*
+*&      Form  GROUP_CHECK
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM GROUP_CHECK .
+
+  IF P_WBSGRP IS NOT INITIAL.
+    IF S_PSPID[] IS NOT INITIAL.
+      MESSAGE E000 WITH 'WBS그룹/값 중 하나만 입력 가능합니다'.
+    ENDIF.
+  ENDIF.
+
+  IF P_PCGRP IS NOT INITIAL.
+    IF S_PRCTR[] IS NOT INITIAL.
+      MESSAGE E000 WITH '손익센터그룹/값 중 하나만 입력 가능합니다'.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.                    " GROUP_CHECK
+*&---------------------------------------------------------------------*
+*&      Form  GET_WBSGRP
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM GET_WBSGRP .
+
+  "<-- 2014.12.04 by FII02(WBS그룹))
+  IF P_WBSGRP IS NOT INITIAL.
+    PERFORM ZFI_GET_CO_GROUP_DATA(ZFIFORMS)
+            TABLES LT_NODES LT_VALUES LT_INFO
+              USING '0110' '' P_KOKRS P_WBSGRP.
+    R_POSID-SIGN = 'I'.
+    R_POSID-OPTION = 'BT'.
+    LOOP AT LT_VALUES.
+      R_POSID-LOW = LT_VALUES-VFROM.
+      R_POSID-HIGH = LT_VALUES-VTO.
+      APPEND R_POSID.
+    ENDLOOP.
+    IF R_POSID[] IS INITIAL.
+      R_POSID-LOW = '0099999999'.
+      R_POSID-HIGH = '0099999999'.
+      APPEND R_POSID.
+    ENDIF.
+
+
+
+    CALL FUNCTION 'ZFI_GET_NEW_POSID'
+      EXPORTING
+        IV_ORVER = P_ORVER
+      TABLES
+        ET_POSID = R_POSID.
+
+
+    "-- WBS 요소의 프로젝트코드  GET(조직개편 포함)
+    PERFORM ZCO_GET_PSPID(ZFIFORMS) TABLES R_POSID S_PSPID
+                               USING P_ORVER.
+
+  ELSEIF S_PSPID IS NOT INITIAL.
+
+
+    CALL FUNCTION 'ZFI_GET_NEW_PSPID'
+      EXPORTING
+        IV_ORVER = P_ORVER
+      TABLES
+        ET_PSPID = S_PSPID.
+    "-- 프로젝트의 WBS 요소 GET
+    PERFORM ZCO_POSID_FROM_PSPID(ZFIFORMS) TABLES GR_POSID S_PSPID.
+
+    "조직개편 로직(WBS 조직개편코드 get)
+    CALL FUNCTION 'ZCO_GET_POSID'
+      EXPORTING
+        IV_ORVER = P_ORVER
+      TABLES
+        ET_POSID = GR_POSID.
+    "-- WBS 요소의 프로젝트코드  GET
+*    PERFORM GET_PSPID_FROM_POSID(ZFIFORMS) TABLES GR_POSID S_PSPID.
+    PERFORM ZCO_PSPID_FROM_POSID(ZFIFORMS)
+     TABLES GR_POSID S_PSPID.
+
+
+  ENDIF.
+
+ENDFORM.                    " GET_WBSGRP
+*&---------------------------------------------------------------------*
+*&      Form  GET_PCGRP
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM GET_PCGRP .
+
+  IF P_PCGRP IS NOT INITIAL.
+    PERFORM ZFI_GET_CO_GROUP_DATA(ZFIFORMS)
+            TABLES LT_NODES LT_VALUES LT_INFO
+              USING '0106' P_KOKRS P_KOKRS P_PCGRP .
+    S_PRCTR-SIGN = 'I'.
+    S_PRCTR-OPTION = 'BT'.
+    LOOP AT LT_VALUES.
+      S_PRCTR-LOW = LT_VALUES-VFROM.
+      S_PRCTR-HIGH = LT_VALUES-VTO.
+      APPEND S_PRCTR.
+    ENDLOOP.
+    IF S_PRCTR[] IS INITIAL.
+      S_PRCTR-LOW = '0099999999'.
+      S_PRCTR-HIGH = '0099999999'.
+      APPEND S_PRCTR.
+    ENDIF.
+
+
+    CALL FUNCTION 'ZFI_GET_NEW_PRCTR'
+      EXPORTING
+        IV_ORVER = P_ORVER
+      TABLES
+        ET_PRCTR = S_PRCTR.
+
+    CALL FUNCTION 'ZCO_GET_PRCTR'
+      EXPORTING
+        IV_ORVER = P_ORVER
+      TABLES
+        ET_PRCTR = S_PRCTR.
+
+  ELSEIF S_PRCTR IS NOT INITIAL.
+
+    CALL FUNCTION 'ZFI_GET_NEW_PRCTR'
+      EXPORTING
+        IV_ORVER = P_ORVER
+      TABLES
+        ET_PRCTR = S_PRCTR.
+
+    CALL FUNCTION 'ZCO_GET_PRCTR'
+      EXPORTING
+        IV_ORVER = P_ORVER
+      TABLES
+        ET_PRCTR = S_PRCTR.
+
+  ENDIF.
+
+ENDFORM.                    " GET_PCGRP
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_G_CODE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      <--P_L_SUBRC  text
+*----------------------------------------------------------------------*
+FORM CHECK_G_CODE  CHANGING PV_SUBRC.
+  CLEAR PV_SUBRC.
+  IF SY-UNAME+0(2) NE 'FI'.
+    SELECT SINGLE *
+      FROM AGR_USERS
+      WHERE AGR_NAME IN ('ZFI_01_00', 'ZFI_03_00', 'ZFI_05_00')
+      AND UNAME = SY-UNAME
+      AND FROM_DAT <= SY-DATUM
+      AND TO_DAT >= SY-DATUM.
+
+    IF SY-SUBRC = 0.
+      CLEAR PV_SUBRC.
+    ELSE.
+      PV_SUBRC = 4.
+    ENDIF.
+  ENDIF.
+ENDFORM.                    " CHECK_G_CODE
+

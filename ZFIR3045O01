@@ -1,0 +1,50 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFIR3020O01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  STATUS_0100  OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE STATUS_0100 OUTPUT.
+
+  CLEAR GT_FCODE[].
+  IF SY-DYNNR NE '0100'.
+    APPEND 'LEVEL' TO GT_FCODE.
+    APPEND 'POSID' TO GT_FCODE.
+  ENDIF.
+
+  IF SY-DYNNR = '0400'.
+    APPEND 'DOWN'  TO GT_FCODE.
+  ENDIF.
+
+  IF SY-DYNNR NE '0300'.
+    APPEND 'DOWN2' TO GT_FCODE.
+  ENDIF.
+
+*  IF SY-UNAME+0(2) NE 'FI'.
+*    APPEND 'DOWN2' TO GT_FCODE.
+*  ENDIF.
+  SET PF-STATUS 'FP0100' EXCLUDING GT_FCODE.
+
+  GV_TITLE = SY-TITLE.
+  SET TITLEBAR 'TIT0100' WITH GV_TITLE.
+
+ENDMODULE.                 " STATUS_0100  OUTPUT
+*&---------------------------------------------------------------------*
+*&      Module  SET_ALV_GRID_0300  OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE SET_ALV_GRID_0300 OUTPUT.
+  PERFORM SET_ALV_GRID_0300.
+ENDMODULE.                 " SET_ALV_GRID_0300  OUTPUT
+*&---------------------------------------------------------------------*
+*&      Module  SET_ALV_GRID_0400  OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE SET_ALV_GRID_0400 OUTPUT.
+  PERFORM SET_ALV_GRID_0400.
+ENDMODULE.                 " SET_ALV_GRID_0400  OUTPUT
+

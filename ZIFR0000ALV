@@ -1,0 +1,1846 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZIFR0000ALV
+*&---------------------------------------------------------------------*
+TABLES : SSCRFIELDS.
+
+DATA : GV_TITLE  TYPE SY-TITLE,
+       GV_LDATE  TYPE DATUM,
+       GV_RESULT TYPE C,
+       GV_ANSWER TYPE C,
+       GV_SUBRC  TYPE SY-SUBRC,
+       OK_CODE   TYPE SY-UCOMM,
+
+       GV_TCOU   TYPE I,
+       GV_SCOU   TYPE I,
+       GV_ECOU   TYPE I,
+
+       OKCODE    TYPE SY-UCOMM.
+
+"도메인 관련
+DATA : GV_DOMVALUE  TYPE DOMVALUE_L,
+       GV_DOMNAME	  TYPE DOMNAME,
+       GV_DDTEXT    TYPE VAL_TEXT.
+
+DATA : GV_EDIT(1),
+       GV_NO_OUT(1).
+
+
+DATA : GT_FCODE(10) OCCURS 0.
+
+
+
+" MESSAGE
+DATA : GS_BDCMSG LIKE BDCMSGCOLL,
+       GT_BDCMSG LIKE BDCMSGCOLL OCCURS 0,
+       GS_RETURN LIKE BAPIRET2,
+       GT_RETURN LIKE BAPIRET2 OCCURS 0.
+
+*-- ERROR MESSAGE
+DATA : GO_ROOT         TYPE REF TO CX_ROOT,
+       GV_MSG          TYPE STRING,
+       GV_MSG1         TYPE STRING,
+       GV_MSG2         TYPE STRING.
+
+DATA : GT_BDCTAB       LIKE BDCDATA OCCURS 0 WITH HEADER LINE,
+       BDC_OPTION      TYPE CTU_PARAMS.
+
+DATA : GV_FIELDNAME    TYPE STRING.
+DATA : GV_SEARCHHELP   TYPE SHLPNAME.
+DATA : GV_OBJID        TYPE W3OBJID.
+
+DATA : F4_SEL_TAB LIKE DDSHRETVAL OCCURS 0 WITH HEADER LINE.
+
+DATA GO_KOSTL TYPE FAGL_RANGE_T_KOSTL.
+DATA GO_PRCTR TYPE FAGL_RANGE_T_PRCTR.
+DATA GO_POSID TYPE RE_T_RSOPOSID.
+
+DATA : GT_ORT_PRCTR LIKE CEPCT OCCURS 0,
+       GS_ORT_PRCTR LIKE CEPCT.
+
+RANGES : GR_POSID FOR PRPS-POSID.
+
+*---------------------------------------------------------------------*
+* FOR ALV ariables
+*---------------------------------------------------------------------*
+*-----/// INCLUDES
+INCLUDE <CL_ALV_CONTROL>.
+
+*----///  Class Definition Notification
+CLASS LCL_DEF_GRID DEFINITION DEFERRED.
+
+
+*-----/// Global Variables
+DATA: G_REPID      LIKE SY-REPID,
+      G_HEIGHT     TYPE I VALUE 70,
+      G_TREE_WIDTH TYPE I VALUE 250.
+
+DATA: G_FOCUS_ROW  TYPE LVC_S_ROID-ROW_ID.    "rowid
+DATA: G_FOCUS_ROW2 TYPE LVC_S_ROID-ROW_ID.    "rowid
+DATA: G_FOCUS_COL  TYPE LVC_S_COL-FIELDNAME.  "
+
+
+**-----///Containers
+*-super Container
+DATA: GO_CONTAINER        TYPE REF TO CL_GUI_CONTAINER,
+      GO_CONTAINER2       TYPE REF TO CL_GUI_CONTAINER,
+      GO_CONTAINER2_1     TYPE REF TO CL_GUI_CONTAINER,
+      GO_CONTAINER2_2     TYPE REF TO CL_GUI_CONTAINER,
+      GO_CONTAINER3       TYPE REF TO CL_GUI_CONTAINER,
+      GO_CONTAINER4       TYPE REF TO CL_GUI_CONTAINER.
+
+
+**-custom
+DATA: GO_CUSTOM_CONTAINER    TYPE REF TO CL_GUI_CUSTOM_CONTAINER,
+      GO_CUSTOM_CONTAINER2   TYPE REF TO CL_GUI_CUSTOM_CONTAINER,
+      GO_CUSTOM_CONTAINER3   TYPE REF TO CL_GUI_CUSTOM_CONTAINER,
+      GO_CUSTOM_CONTAINER6   TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+
+*-docking
+DATA: GO_DOCKING_CONTAINER    TYPE REF TO CL_GUI_DOCKING_CONTAINER,
+      GO_DOCKING_CONTAINER2   TYPE REF TO CL_GUI_DOCKING_CONTAINER,
+      GO_DOCKING_CONTAINER3   TYPE REF TO CL_GUI_DOCKING_CONTAINER,
+      GO_DOCKING_CONTAINER4   TYPE REF TO CL_GUI_DOCKING_CONTAINER,
+      GO_DOCKING_CONTAINER7   TYPE REF TO CL_GUI_DOCKING_CONTAINER.
+
+
+*-splitter
+DATA: GO_SPLITTER  TYPE REF TO CL_GUI_SPLITTER_CONTAINER,   "#EC NEEDED
+      GO_SPLITTER2 TYPE REF TO CL_GUI_SPLITTER_CONTAINER,   "#EC NEEDED
+      GO_SPLITTER3 TYPE REF TO CL_GUI_SPLITTER_CONTAINER.   "#EC NEEDED
+
+*-HTML Document Viewer
+DATA: GO_DOCUMENT           TYPE REF TO CL_DD_DOCUMENT,     "#EC NEEDED
+      GO_DOCUMENT2          TYPE REF TO CL_DD_DOCUMENT,     "#EC NEEDED
+      GO_DOCUMENT3          TYPE REF TO CL_DD_DOCUMENT,     "#EC NEEDED
+      GO_HTML_VIEWER        TYPE REF TO CL_GUI_HTML_VIEWER, "#EC NEEDED
+      GO_HTML_VIEWER2       TYPE REF TO CL_GUI_HTML_VIEWER, "#EC NEEDED
+      GO_HTML_VIEWER3       TYPE REF TO CL_GUI_HTML_VIEWER. "#EC NEEDED
+
+
+*-----/// Structures, internal tables
+DATA: GS_CELL     TYPE LVC_S_STYL.
+DATA: GS_SORT     TYPE LVC_S_SORT.
+DATA: GS_FIELDCAT TYPE LVC_S_FCAT.
+DATA: GS_F4       TYPE LVC_S_F4.
+DATA: GS_ROWS TYPE LVC_S_ROW.
+DATA: GS_COLS TYPE LVC_S_COL.
+DATA: GS_DROPDOWN TYPE LVC_S_DROP.
+
+DATA: GS_ROWNO    TYPE LVC_S_ROID.
+DATA: GS_GOOD     TYPE LVC_S_MODI.
+
+DATA: GT_CELL     TYPE LVC_T_STYL.
+
+*-----/// FOR ALV variables
+DATA: GO_GRID               TYPE REF TO CL_GUI_ALV_GRID,    "#EC NEEDED
+      G_CONTAINER_NAME      TYPE SCRFNAME VALUE 'MY_CONT',  "#EC NEEDED
+      GS_VARIANT            TYPE DISVARIANT,                "#EC NEEDED
+      GS_LAYOUT             TYPE LVC_S_LAYO,                "#EC NEEDED
+      GS_STABLE             TYPE LVC_S_STBL VALUE 'XX',     "#EC NEEDED
+      GT_FIELDCAT           TYPE LVC_T_FCAT,                "#EC NEEDED
+      GT_SORT               TYPE LVC_T_SORT,                "#EC NEEDED
+      GT_EXCLUDE            TYPE UI_FUNCTIONS,              "#EC NEEDED
+      GT_F4                 TYPE LVC_T_F4,                  "#EC NEEDED
+      GT_ROWS               TYPE LVC_T_ROW,                 "#EC NEEDED
+      GT_COLS               TYPE LVC_T_COL,                 "#EC NEEDED
+      GT_DROPDOWN           TYPE LVC_T_DROP.                "#EC NEEDED
+DATA: GO_GRID_C             TYPE REF TO LCL_DEF_GRID.       "#EC NEEDED
+
+*-----/// ALV2
+DATA: GO_GRID2               TYPE REF TO CL_GUI_ALV_GRID,
+      G_CONTAINER_NAME2      TYPE SCRFNAME VALUE 'MY_CONT2',
+      GS_VARIANT2            TYPE DISVARIANT,
+      GS_LAYOUT2             TYPE LVC_S_LAYO,
+      GS_STABLE2             TYPE LVC_S_STBL,
+      GT_FIELDCAT2           TYPE LVC_T_FCAT,
+      GT_SORT2               TYPE LVC_T_SORT,
+      GT_EXCLUDE2            TYPE UI_FUNCTIONS,
+      GT_F4_2                TYPE LVC_T_F4,
+      GT_ROWS2               TYPE LVC_T_ROW,
+      GT_COLS2               TYPE LVC_T_COL,
+      GT_DROPDOWN2           TYPE LVC_T_DROP.
+DATA: GO_GRID_C2             TYPE REF TO LCL_DEF_GRID.      "#EC NEEDED
+
+*-----/// ALV3
+DATA: GO_GRID3               TYPE REF TO CL_GUI_ALV_GRID,   "#EC NEEDED
+      G_CONTAINER_NAME3      TYPE SCRFNAME VALUE 'MY_CONT3',
+      GS_VARIANT3            TYPE DISVARIANT,
+      GS_LAYOUT3             TYPE LVC_S_LAYO,
+      GS_STABLE3             TYPE LVC_S_STBL,
+      GT_FIELDCAT3           TYPE LVC_T_FCAT,
+      GT_SORT3               TYPE LVC_T_SORT,
+      GT_EXCLUDE3            TYPE UI_FUNCTIONS,
+      GT_F4_3                TYPE LVC_T_F4,
+      GT_ROWS3               TYPE LVC_T_ROW,
+      GT_COLS3               TYPE LVC_T_COL,
+      GT_DROPDOWN3           TYPE LVC_T_DROP.
+DATA: GO_GRID_C3             TYPE REF TO LCL_DEF_GRID.      "#EC NEEDED
+
+*-----/// ALV4
+DATA: GO_GRID4               TYPE REF TO CL_GUI_ALV_GRID,   "#EC NEEDED
+      G_CONTAINER_NAME4      TYPE SCRFNAME VALUE 'MY_CONT3',
+      GS_VARIANT4            TYPE DISVARIANT,
+      GS_LAYOUT4             TYPE LVC_S_LAYO,
+      GS_STABLE4             TYPE LVC_S_STBL,
+      GT_FIELDCAT4           TYPE LVC_T_FCAT,
+      GT_SORT4               TYPE LVC_T_SORT,
+      GT_EXCLUDE4            TYPE UI_FUNCTIONS,
+      GT_F4_4                TYPE LVC_T_F4,
+      GT_ROWS4               TYPE LVC_T_ROW,
+      GT_COLS4               TYPE LVC_T_COL,
+      GT_DROPDOWN4           TYPE LVC_T_DROP.
+DATA: GO_GRID_C4             TYPE REF TO LCL_DEF_GRID.      "#EC NEEDED
+
+DATA: GO_GRID6               TYPE REF TO CL_GUI_ALV_GRID,   "#EC NEEDED
+      G_CONTAINER_NAME6      TYPE SCRFNAME VALUE 'MY_CONT6',
+      GS_VARIANT6            TYPE DISVARIANT,
+      GS_LAYOUT6             TYPE LVC_S_LAYO,
+      GS_STABLE6             TYPE LVC_S_STBL,
+      GT_FIELDCAT6           TYPE LVC_T_FCAT,
+      GT_SORT6               TYPE LVC_T_SORT,
+      GT_EXCLUDE6            TYPE UI_FUNCTIONS,
+      GT_F4_6                TYPE LVC_T_F4,
+      GT_ROWS6               TYPE LVC_T_ROW,
+      GT_COLS6               TYPE LVC_T_COL,
+      GT_DROPDOWN6           TYPE LVC_T_DROP.
+DATA: GO_GRID_C6             TYPE REF TO LCL_DEF_GRID.      "#EC NEEDED
+
+
+
+*-----/// ALV3
+DATA: GO_GRID7               TYPE REF TO CL_GUI_ALV_GRID,   "#EC NEEDED
+      G_CONTAINER_NAME7      TYPE SCRFNAME VALUE 'MY_CONT3',
+      GS_VARIANT7            TYPE DISVARIANT,
+      GS_LAYOUT7             TYPE LVC_S_LAYO,
+      GS_STABLE7             TYPE LVC_S_STBL,
+      GT_FIELDCAT7           TYPE LVC_T_FCAT,
+      GT_SORT7               TYPE LVC_T_SORT,
+      GT_EXCLUDE7            TYPE UI_FUNCTIONS,
+      GT_F4_7                TYPE LVC_T_F4,
+      GT_ROWS7               TYPE LVC_T_ROW,
+      GT_COLS7               TYPE LVC_T_COL,
+      GT_DROPDOWN7           TYPE LVC_T_DROP.
+DATA: GO_GRID_C7             TYPE REF TO LCL_DEF_GRID.      "#EC NEEDED
+
+
+DATA : G_ROW_ID  TYPE SY-INDEX,
+       GS_ROW_ID TYPE LVC_S_ROW,
+       GV_ROW    TYPE I,
+       GV_COL    TYPE I.
+
+DATA : GT_PRINT   TYPE SLIS_PRINT_ALV.
+DATA : GT_XEVENTS TYPE SLIS_T_EVENT,
+       XS_EVENT   TYPE SLIS_ALV_EVENT.
+
+*---------------------------------------------------------------------*
+* FOR ALV CLASSes
+*---------------------------------------------------------------------*
+*-- LOCAL ALV GRID CLASS DEFINITION ----------------------------------*
+*---------------------------------------------------------------------*
+*       CLASS lcl_def_grid1 DEFINITION
+*---------------------------------------------------------------------*
+CLASS LCL_DEF_GRID DEFINITION INHERITING FROM CL_GUI_ALV_GRID.
+
+  PUBLIC SECTION.
+
+*    METHODS: M_SET_FIXED_ROWS,
+*             M_SET_RESIZE_COLS,
+*             M_SCROLL_TO_BOTTOM,
+*             M_OPTIMIZE_ALL_COLS,
+*             M_SET_CURRENT_CELL_BASE
+*                 IMPORT!ING
+*                      ROW TYPE I
+*                      COL TYPE I.
+*          get_toolbar            EXPORTING t_toolbar TYPE ttb_button,
+*          get_excluding_toolbar  EXPORTING t_toolbar TYPE ttb_button,
+*          set_excluding_toolbar  IMPORT!ING t_toolbar TYPE ttb_button.
+
+ENDCLASS.                    "lcl_def_grid DEFINITION
+*---------------------------------------------------------------------*
+*       CLASS lcl_def_grid IMPLEMENTATION
+*---------------------------------------------------------------------*
+CLASS LCL_DEF_GRID IMPLEMENTATION.
+
+*  METHOD  M_SET_FIXED_ROWS.
+*    CALL METHOD ME->SET_FIXED_ROWS
+*      EXPORTING
+*        ROWS = 1.
+*  ENDMETHOD.                    " M_SET_FIXED_ROWS
+*
+*  METHOD  M_SET_RESIZE_COLS.
+*    CALL METHOD ME->SET_RESIZE_COLS
+*      EXPORTING
+*        ENABLE = 1.   " NO
+*  ENDMETHOD.                    " M_SET_RESIZE_COLS
+*
+*  METHOD  M_SCROLL_TO_BOTTOM.
+*    CALL METHOD ME->SCROLL_TO_BOTTOM.
+*  ENDMETHOD.                    " M_SCROLL_TO_BOTTOM
+*
+*  METHOD  M_SET_CURRENT_CELL_BASE.
+*    CALL METHOD ME->SET_CURRENT_CELL_BASE
+*      EXPORTING
+*        ROW = ROW
+*        COL = COL.
+*  ENDMETHOD.                    " M_SET_CURRENT_CELL_BASE
+*
+*  METHOD M_OPTIMIZE_ALL_COLS.
+*    CALL METHOD ME->OPTIMIZE_ALL_COLS
+*      EXPORTING
+*        INCLUDE_HEADER = 1.
+*  ENDMETHOD.                    " M_set_optimize
+
+*  METHOD get_toolbar.
+*    t_toolbar[] = me->mt_toolbar[].
+*  ENDMETHOD.                    " get_toolbar
+*
+*  METHOD get_excluding_toolbar.
+*    t_toolbar[] = me->mt_excluding_toolbar[].
+*  ENDMETHOD.                    " get_excluding_toolbar
+*
+*  METHOD set_excluding_toolbar.
+*    me->mt_excluding_toolbar[] = t_toolbar[].
+*  ENDMETHOD.                    " set_excluding_toolbar
+
+
+ENDCLASS.                    " lcl_def_grid IMPLEMENTATION
+
+
+*&---------------------------------------------------------------------*
+*  CL_GUI_RESOURCES DEFINITION LOAD
+*&---------------------------------------------------------------------*
+CLASS CL_GUI_OBJECT DEFINITION LOAD.
+CLASS LCL_EVENT_RECEIVER DEFINITION DEFERRED.
+
+DATA: GO_EVENT_RCVR TYPE REF TO LCL_EVENT_RECEIVER.         "#EC NEEDED
+
+*---------------------------------------------------------------------*
+*       CLASS LCL_EVENT_RECEIVER DEFINITION
+*---------------------------------------------------------------------*
+*       ........                                                      *
+*---------------------------------------------------------------------*
+CLASS LCL_EVENT_RECEIVER DEFINITION.
+
+  PUBLIC SECTION.
+
+    METHODS : HANDLE_TOOLBAR
+                 FOR EVENT TOOLBAR OF CL_GUI_ALV_GRID
+                 IMPORTING E_OBJECT
+                           E_INTERACTIVE.
+
+    METHODS : HANDLE_USER_COMMAND
+                 FOR EVENT USER_COMMAND OF CL_GUI_ALV_GRID
+                 IMPORTING E_UCOMM.
+
+    METHODS : HANDLE_DATA_CHANGED
+                 FOR EVENT DATA_CHANGED OF CL_GUI_ALV_GRID
+                 IMPORTING ER_DATA_CHANGED.
+
+    METHODS : HANDLE_DATA_CHANGED_FINISHED
+                 FOR EVENT DATA_CHANGED_FINISHED OF CL_GUI_ALV_GRID
+                 IMPORTING E_MODIFIED ET_GOOD_CELLS.
+
+    METHODS : HANDLE_HOTSPOT_CLICK
+                 FOR EVENT HOTSPOT_CLICK OF CL_GUI_ALV_GRID
+                 IMPORTING E_ROW_ID
+                           E_COLUMN_ID.
+
+    METHODS : HANDLE_DOUBLE_CLICK
+                 FOR EVENT DOUBLE_CLICK OF CL_GUI_ALV_GRID
+                 IMPORTING E_ROW
+                           E_COLUMN
+                           ES_ROW_NO.
+
+    METHODS: HANDLE_ON_F4 FOR EVENT ONF4 OF CL_GUI_ALV_GRID
+       IMPORTING SENDER
+                 E_FIELDNAME
+                 E_FIELDVALUE
+                 ES_ROW_NO
+                 ER_EVENT_DATA
+                 ET_BAD_CELLS
+                 E_DISPLAY.
+
+    METHODS: HANDLE_TOP_OF_PAGE FOR EVENT TOP_OF_PAGE
+                           OF CL_GUI_ALV_GRID
+        IMPORTING E_DYNDOC_ID.
+
+    METHODS : HANDLE_BEFORE_USER_COMMAND
+                 FOR EVENT BEFORE_USER_COMMAND OF CL_GUI_ALV_GRID
+                 IMPORTING E_UCOMM.
+
+    METHODS : HANDLE_AFTER_USER_COMMAND
+                 FOR EVENT AFTER_USER_COMMAND OF CL_GUI_ALV_GRID
+                 IMPORTING E_UCOMM
+                           E_NOT_PROCESSED
+                           E_SAVED.
+
+    METHODS : HANDLE_BUTTON_CLICK
+                     FOR EVENT BUTTON_CLICK OF CL_GUI_ALV_GRID
+                     IMPORTING ES_COL_ID
+                               ES_ROW_NO.
+
+    METHODS : HANDLE_SUBTOTAL_TEXT
+                    FOR EVENT SUBTOTAL_TEXT OF CL_GUI_ALV_GRID
+                    IMPORTING ES_SUBTOTTXT_INFO
+                              EP_SUBTOT_LINE
+                              E_EVENT_DATA.
+
+    METHODS : HANDLE_SUBTOTAL_TEXT2
+                    FOR EVENT SUBTOTAL_TEXT OF CL_GUI_ALV_GRID
+                    IMPORTING ES_SUBTOTTXT_INFO
+                              EP_SUBTOT_LINE
+                              E_EVENT_DATA.
+
+ENDCLASS.                    "lcl_event_receiver DEFINITION
+*---------------------------------------------------------------------*
+*       CLASS lcl_event_receiver IMPLEMENTATION
+*---------------------------------------------------------------------*
+*       ........                                                      *
+*---------------------------------------------------------------------*
+CLASS LCL_EVENT_RECEIVER IMPLEMENTATION.
+
+  METHOD HANDLE_TOOLBAR.
+    PERFORM HANDLE_TOOLBAR IN PROGRAM (G_REPID)  IF FOUND
+                        USING E_OBJECT E_INTERACTIVE.
+  ENDMETHOD.                    "handle_toolbar
+
+  METHOD HANDLE_USER_COMMAND.
+    PERFORM HANDLE_USER_COMMAND IN PROGRAM (G_REPID) IF FOUND
+                        USING E_UCOMM.
+  ENDMETHOD.                    "handle_user_command
+
+  METHOD HANDLE_DATA_CHANGED.
+    PERFORM HANDLE_DATA_CHANGED IN PROGRAM (G_REPID) IF FOUND
+                        USING ER_DATA_CHANGED.
+  ENDMETHOD.                    "handle_data_changed
+
+  METHOD HANDLE_DATA_CHANGED_FINISHED.
+    PERFORM HANDLE_DATA_CHANGED_FINISHED IN PROGRAM (G_REPID) IF FOUND
+                        USING  E_MODIFIED ET_GOOD_CELLS.
+  ENDMETHOD.                    "handle_data_changed_finished
+
+  METHOD HANDLE_HOTSPOT_CLICK.
+    PERFORM HANDLE_HOTSPOT_CLICK IN PROGRAM (G_REPID) IF FOUND
+                        USING E_ROW_ID E_COLUMN_ID.
+  ENDMETHOD.                    "handle_hotspot_click
+
+  METHOD HANDLE_DOUBLE_CLICK.
+    PERFORM HANDLE_DOUBLE_CLICK IN PROGRAM (G_REPID) IF FOUND
+                        USING E_ROW E_COLUMN ES_ROW_NO.
+  ENDMETHOD.                    "handle_double_click
+
+  METHOD HANDLE_ON_F4.
+    PERFORM HANDLE_ON_F4 IN PROGRAM (G_REPID) IF FOUND
+                        USING SENDER
+                              E_FIELDNAME
+                              E_FIELDVALUE
+                              ES_ROW_NO
+                              ER_EVENT_DATA
+                              ET_BAD_CELLS
+                              E_DISPLAY.
+  ENDMETHOD.                    "handle_on_f4
+
+  METHOD HANDLE_TOP_OF_PAGE.
+    PERFORM HANDLE_TOP_OF_PAGE IN PROGRAM (G_REPID) IF FOUND
+                        USING E_DYNDOC_ID.
+  ENDMETHOD.                    "handle_top_of_page
+
+  METHOD HANDLE_BEFORE_USER_COMMAND.
+    PERFORM HANDLE_BEFORE_USER_COMMAND IN PROGRAM (G_REPID) IF FOUND
+                        USING E_UCOMM.
+  ENDMETHOD.                    "before_user_command
+
+  METHOD HANDLE_AFTER_USER_COMMAND.
+    PERFORM HANDLE_AFTER_USER_COMMAND IN PROGRAM (G_REPID) IF FOUND
+                        USING E_UCOMM
+                               E_NOT_PROCESSED
+                               E_SAVED.
+  ENDMETHOD.                    "after_user_command
+
+  METHOD HANDLE_BUTTON_CLICK.
+    PERFORM HANDLE_BUTTON_CLICK IN PROGRAM (G_REPID) IF FOUND
+                        USING ES_COL_ID
+                              ES_ROW_NO.
+  ENDMETHOD.                    "HANDLE_BUTTON_CLICK
+
+
+  METHOD HANDLE_SUBTOTAL_TEXT.
+    PERFORM HANDLE_SUBTOTAL_TEXT IN PROGRAM (G_REPID) IF FOUND
+                        USING ES_SUBTOTTXT_INFO
+                              EP_SUBTOT_LINE
+                              E_EVENT_DATA.
+  ENDMETHOD.                    "HANDLE_BUTTON_CLICK
+
+  METHOD HANDLE_SUBTOTAL_TEXT2.
+    PERFORM HANDLE_SUBTOTAL_TEXT2 IN PROGRAM (G_REPID) IF FOUND
+                        USING ES_SUBTOTTXT_INFO
+                              EP_SUBTOT_LINE
+                              E_EVENT_DATA.
+  ENDMETHOD.                    "HANDLE_BUTTON_CLICK
+
+
+
+ENDCLASS.                    "lcl_event_receiver IMPLEMENTATION
+
+"2015.03.12 추가
+CLASS LCL_EVENT_RECEIVER2 DEFINITION DEFERRED.
+
+DATA: GO_EVENT_RCVR2 TYPE REF TO LCL_EVENT_RECEIVER2.     "#ECNEEDED
+
+*---------------------------------------------------------------------*
+*       CLASS LCL_EVENT_RECEIVER DEFINITION
+*---------------------------------------------------------------------*
+*       ........                                                      *
+*---------------------------------------------------------------------*
+CLASS LCL_EVENT_RECEIVER2 DEFINITION.
+
+  PUBLIC SECTION.
+
+
+    METHODS : HANDLE_DOUBLE_CLICK2
+                 FOR EVENT DOUBLE_CLICK OF CL_GUI_ALV_GRID
+                 IMPORTING E_ROW
+                           E_COLUMN
+                           ES_ROW_NO.
+
+
+ENDCLASS.                    "lcl_event_receiver DEFINITION
+*---------------------------------------------------------------------*
+*       CLASS lcl_event_receiver IMPLEMENTATION
+*---------------------------------------------------------------------*
+*       ........                                                      *
+*---------------------------------------------------------------------*
+CLASS LCL_EVENT_RECEIVER2 IMPLEMENTATION.
+
+
+  METHOD HANDLE_DOUBLE_CLICK2.
+    PERFORM HANDLE_DOUBLE_CLICK2 IN PROGRAM (G_REPID) IF FOUND
+                        USING E_ROW E_COLUMN ES_ROW_NO.
+  ENDMETHOD.                    "handle_double_click
+
+
+
+ENDCLASS.                    "lcl_event_receiver IMPLEMENTATION
+"2015.03.12 추가
+*---------------------------------------------------------------------*
+* ALV Forms
+*---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_GRID_CONTAINER
+*&---------------------------------------------------------------------*
+*
+*&---------------------------------------------------------------------*
+FORM CREATE_GRID_CONTAINER
+                USING    P_PARENT
+                         PO_GRID      TYPE REF TO CL_GUI_ALV_GRID
+                         P_APPL.
+
+  CHECK PO_GRID IS INITIAL.
+  CREATE OBJECT PO_GRID
+    EXPORTING
+      I_PARENT      = P_PARENT
+      I_APPL_EVENTS = P_APPL.
+
+ENDFORM.                    " CREATE_GRID_CONTAINER
+*&---------------------------------------------------------------------*
+*&      Form  SET_GRID_VARI
+*&---------------------------------------------------------------------*
+*   ALV Grid LAYOUT
+*&---------------------------------------------------------------------*
+FORM SET_GRID_VARI  USING    P_VALUE1
+                             P_VALUE2
+                             P_VARIANT
+                    CHANGING CS_VARI TYPE DISVARIANT.
+
+  CS_VARI-REPORT      = SY-REPID.
+  CS_VARI-HANDLE      = P_VALUE1.
+  CS_VARI-LOG_GROUP   = P_VALUE2.
+
+  CS_VARI-USERNAME    = SY-UNAME.
+  CS_VARI-VARIANT     = P_VARIANT.
+  CS_VARI-TEXT        = SPACE.
+  CS_VARI-DEPENDVARS  = SPACE.
+
+
+ENDFORM.                    " set_grid_vari
+*&---------------------------------------------------------------------*
+*&      Form  set_grid_layout
+*&---------------------------------------------------------------------*
+*   ALV Grid
+*&---------------------------------------------------------------------*
+*  -->  P_OPT
+*  -->  P_ZEBRA
+*  -->  P_BOX
+*  -->  P_SEL_MODE
+*  -->  P_CELLTAB
+*  -->  P_TITLE
+*  -->  P_SMALLTITLE
+*  -->  P_NO_TOLLBAR
+*  -->  P_INFO_FNAME
+*  <--  PS_LAYOUT
+*&---------------------------------------------------------------------*
+FORM SET_GRID_LAYOUT    USING      P_OPT
+                                   P_ZEBRA
+                                   P_BOX
+                                   P_SEL_MODE
+                                   P_CELLTAB
+                                   P_TITLE
+                                   P_SMALLTITLE
+                                   P_NO_TOOLBAR
+                                   P_INFO_FNAME
+                                   P_CTAB_FNAME
+                          CHANGING PS_LAYOUT   TYPE LVC_S_LAYO.
+
+  CLEAR PS_LAYOUT.
+
+  PS_LAYOUT-CWIDTH_OPT  = P_OPT.
+  PS_LAYOUT-ZEBRA       = P_ZEBRA.
+  PS_LAYOUT-SEL_MODE    = P_SEL_MODE.
+  PS_LAYOUT-BOX_FNAME   = P_BOX.
+  PS_LAYOUT-STYLEFNAME  = P_CELLTAB.
+  PS_LAYOUT-GRID_TITLE  = P_TITLE.
+  PS_LAYOUT-SMALLTITLE  = P_SMALLTITLE.
+  PS_LAYOUT-NO_TOOLBAR  = P_NO_TOOLBAR.
+  PS_LAYOUT-INFO_FNAME  = P_INFO_FNAME.
+  PS_LAYOUT-CTAB_FNAME  = P_CTAB_FNAME.
+
+ENDFORM.                    " set_grid_layout
+*&---------------------------------------------------------------------*
+*&      Form  append_grid_fieldcat
+*&---------------------------------------------------------------------*
+*   ALV Grid Fieldcatalog
+*&---------------------------------------------------------------------*
+*  <--> PT_FIELDCAT
+*  --> p_key
+*  --> p_fieldname
+*  --> p_ref_table
+*  --> p_ref_field
+*  --> p_scrtext
+*  -->  p_outputlen
+*  --> p_col_opt
+*  --> p_edit
+*  --> p_f4availabl
+*  --> p_sum
+*  --> p_cfieldname
+*  --> p_no_out
+*  --> p_color.
+*  <-- P_POS
+*&---------------------------------------------------------------------*
+FORM APPEND_GRID_FIELDCAT TABLES   PT_FIELDCAT TYPE LVC_T_FCAT
+                    USING    P_KEY
+                             P_FIELDNAME
+                             P_REF_TABLE
+                             P_REF_FIELD
+                             P_SCRTEXT
+                             P_OUTPUTLEN
+                             P_COL_OPT
+                             P_EDIT
+                             P_F4AVAILABL
+                             P_SUM
+                             P_CFIELDNAME
+                             P_NO_OUT
+                             P_COLOR
+                  CHANGING   P_POS.
+
+*  DATA: l_pos TYPE i.
+*
+*  l_pos = l_pos + 1.
+  P_POS = P_POS + 1.
+
+  CLEAR GS_FIELDCAT.
+
+  GS_FIELDCAT-COL_POS       = P_POS.
+  GS_FIELDCAT-KEY           = P_KEY.
+  GS_FIELDCAT-FIELDNAME     = P_FIELDNAME.
+  GS_FIELDCAT-REF_TABLE     = P_REF_TABLE.
+  GS_FIELDCAT-REF_FIELD     = P_REF_FIELD.
+  GS_FIELDCAT-OUTPUTLEN     = P_OUTPUTLEN.
+  GS_FIELDCAT-COL_OPT       = P_COL_OPT.
+  GS_FIELDCAT-EDIT          = P_EDIT.
+  GS_FIELDCAT-F4AVAILABL    = P_F4AVAILABL.
+  GS_FIELDCAT-CFIELDNAME    = P_CFIELDNAME.
+  GS_FIELDCAT-DO_SUM        = P_SUM.
+  GS_FIELDCAT-NO_OUT        = P_NO_OUT.
+  GS_FIELDCAT-EMPHASIZE     = P_COLOR.
+
+  GS_FIELDCAT-COLTEXT   = P_SCRTEXT.
+  GS_FIELDCAT-SCRTEXT_L = P_SCRTEXT.
+  GS_FIELDCAT-SCRTEXT_M = P_SCRTEXT.
+  GS_FIELDCAT-SCRTEXT_S = P_SCRTEXT.
+  GS_FIELDCAT-COLDDICTXT   = 'M'.
+
+  APPEND GS_FIELDCAT TO  PT_FIELDCAT.
+
+ENDFORM.                    " append_grid_fieldcat
+*&---------------------------------------------------------------------*
+*&      Form  register_event_handler
+*&---------------------------------------------------------------------*
+*   ALV Grid
+*&---------------------------------------------------------------------*
+*  --> p_grid
+*  --> p_event_receiver TYPE REF TO lcl_event_receiver
+*  --> p_toolbar
+*  --> p_user_command
+*  --> p_data_changed
+*  --> p_data_changed_finished
+*  --> p_hotspot_click
+*  --> p_double_click
+*  --> p_on_f4.
+*&---------------------------------------------------------------------*
+FORM REGISTER_EVENT_HANDLER
+             USING  PO_GRID  TYPE REF TO CL_GUI_ALV_GRID
+                    PO_EVENT_RECEIVER TYPE REF TO LCL_EVENT_RECEIVER
+                    P_TOP_OF_PAGE
+                    P_DOUBLE_CLICK
+                    P_DATA_CHANGED
+                    P_TOOLBAR
+                    P_USER_COMMAND
+                    P_DATA_CHANGED_FINISHED
+                    P_HOTSPOT_CLICK
+                    P_ON_F4
+                    P_BEFORE_USER_COMMAND
+                    P_AFTER_USER_COMMAND
+                    P_BUTTON_CLICK.
+
+* CREATE EVENT RECEIVER
+  CALL METHOD PO_GRID->REGISTER_EDIT_EVENT
+    EXPORTING
+      I_EVENT_ID = CL_GUI_ALV_GRID=>MC_EVT_ENTER.
+
+  " IF PO_EVENT_RECEIVER IS NOT INITIAL.
+  "    CLEAR PO_EVENT_RECEIVER.
+  "  ENDIF.
+  CREATE OBJECT PO_EVENT_RECEIVER.
+
+  CALL METHOD PO_GRID->REGISTER_EDIT_EVENT
+    EXPORTING
+      I_EVENT_ID = CL_GUI_ALV_GRID=>MC_EVT_MODIFIED.
+
+  IF P_TOP_OF_PAGE EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_TOP_OF_PAGE FOR PO_GRID.
+  ENDIF.
+
+  IF P_DOUBLE_CLICK EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_DOUBLE_CLICK FOR PO_GRID.
+  ENDIF.
+
+  IF P_DATA_CHANGED EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_DATA_CHANGED FOR PO_GRID.
+  ENDIF.
+
+* register handler
+  IF P_TOOLBAR EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_TOOLBAR FOR PO_GRID.
+  ENDIF.
+
+  IF P_USER_COMMAND EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_USER_COMMAND FOR PO_GRID.
+  ENDIF.
+
+  IF P_DATA_CHANGED_FINISHED EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_DATA_CHANGED_FINISHED
+                                                      FOR PO_GRID.
+  ENDIF.
+
+  IF P_HOTSPOT_CLICK EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_HOTSPOT_CLICK FOR PO_GRID.
+  ENDIF.
+
+  IF P_ON_F4 EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_ON_F4 FOR PO_GRID.
+  ENDIF.
+
+  IF P_BEFORE_USER_COMMAND EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_BEFORE_USER_COMMAND
+                                                     FOR PO_GRID.
+  ENDIF.
+
+  IF P_AFTER_USER_COMMAND EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_AFTER_USER_COMMAND
+                                                     FOR PO_GRID.
+  ENDIF.
+
+  IF P_BUTTON_CLICK EQ ABAP_TRUE.
+    SET HANDLER PO_EVENT_RECEIVER->HANDLE_BUTTON_CLICK
+                                                     FOR PO_GRID.
+  ENDIF.
+
+
+
+ENDFORM.                    " register_event_handler
+*&---------------------------------------------------------------------*
+*&      Form  exclude_functions
+*&---------------------------------------------------------------------*
+*
+*&---------------------------------------------------------------------*
+*  -->
+*&---------------------------------------------------------------------*
+*FORM exclude_functions  CHANGING pt_exclude TYPE ui_functions.
+*
+*  REFRESH: pt_exclude.
+*
+*  PERFORM append_exclude_functions TABLES pt_exclude USING:
+*              cl_gui_alv_grid=>Mc_Fc_loc_undo, "LOCAL&UNDO
+**              CL_GUI_ALV_GRID=>Mc_Fc_CURRENT_VARIANT,
+**              CL_GUI_ALV_GRID=>Mc_Fc_DETAIL,
+*              cl_gui_alv_grid=>Mc_Fc_graph,
+*              cl_gui_alv_grid=>Mc_Fc_help,
+*              cl_gui_alv_grid=>Mc_Fc_info,
+**              CL_GUI_ALV_GRID=>Mc_Fc_MAINTAIN_VARIANT,
+**              CL_GUI_ALV_GRID=>Mc_Fc_SAVE_VARIANT,
+*              cl_gui_alv_grid=>Mc_Fc_views,
+**              CL_GUI_ALV_GRID=>Mc_Fc_VIEW_CRYSTAL,
+**              CL_GUI_ALV_GRID=>Mc_Fc_VIEW_GRID,
+*              cl_gui_alv_grid=>Mc_Fc_refresh,
+*              cl_gui_alv_grid=>Mc_Fc_select_all,
+*              cl_gui_alv_grid=>Mc_Fc_deselect_all,
+**              CL_GUI_ALV_GRID=>Mc_Fc_LOAD_VARIANT,
+*              cl_gui_alv_grid=>Mc_Fc_loc_copy,          "
+*              cl_gui_alv_grid=>Mc_Fc_html,
+*              cl_gui_alv_grid=>Mc_Fc_loc_copy_row,      ".
+*              cl_gui_alv_grid=>Mc_Fc_loc_cut,           ".
+*              cl_gui_alv_grid=>Mc_Fc_loc_delete_row,    ".
+*              cl_gui_alv_grid=>Mc_Fc_loc_insert_row,    ".
+*              cl_gui_alv_grid=>Mc_Fc_loc_move_row,
+*              cl_gui_alv_grid=>Mc_Fc_loc_append_row,    "
+*              cl_gui_alv_grid=>Mc_Fc_loc_paste,         "
+*              cl_gui_alv_grid=>Mc_Fc_loc_paste_new_row. "
+*
+*ENDFORM.                    " exclude_functions
+*&---------------------------------------------------------------------*
+*&      Form  append_exclude_functions
+*&---------------------------------------------------------------------*
+*
+*&---------------------------------------------------------------------*
+* <--> P_TABLES
+*  --> P_VALUE
+*&---------------------------------------------------------------------*
+FORM APPEND_EXCLUDE_FUNCTIONS  TABLES P_TABLE
+                                USING P_VALUE.
+
+  DATA LS_EXCLUDE TYPE UI_FUNC.
+
+  LS_EXCLUDE = P_VALUE.
+  APPEND LS_EXCLUDE TO P_TABLE.
+
+ENDFORM.                    " append_exclude_functions
+*&---------------------------------------------------------------------*
+*&      Form  display_alv_grid
+*&---------------------------------------------------------------------*
+*  alv grid# display
+*&---------------------------------------------------------------------*
+*  --> P_TABLE
+*  --> P_GRID
+*  --> P_VARIANT
+*  --> P_LAYOUT
+*  --> PT_EXCLUDE
+*  --> PT_FIELDCAT
+*  --> PT_SORT
+*&---------------------------------------------------------------------*
+FORM DISPLAY_ALV_GRID   USING P_TABLE
+                         PO_GRID     TYPE REF TO CL_GUI_ALV_GRID
+                         P_VARIANT   TYPE DISVARIANT
+                         P_LAYOUT    TYPE LVC_S_LAYO
+                         PT_EXCLUDE  TYPE UI_FUNCTIONS
+                         PT_FIELDCAT TYPE LVC_T_FCAT
+                         PT_SORT     TYPE LVC_T_SORT.
+
+  DATA : L_TABLE TYPE FELD-NAME.
+  FIELD-SYMBOLS <FS_TABLE> TYPE STANDARD TABLE.
+
+  CONCATENATE P_TABLE '[]' INTO L_TABLE.
+  ASSIGN (L_TABLE) TO <FS_TABLE>.
+
+  CALL METHOD PO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+    EXPORTING
+      I_BUFFER_ACTIVE      = 'X'
+*     I_BUFFER_ACTIVE      = ' '
+      I_BYPASSING_BUFFER   = ' '
+      I_SAVE               = 'A'
+      IS_VARIANT           = P_VARIANT
+      IS_LAYOUT            = P_LAYOUT
+      IT_TOOLBAR_EXCLUDING = PT_EXCLUDE
+    CHANGING
+      IT_FIELDCATALOG      = PT_FIELDCAT
+      IT_SORT              = PT_SORT
+      IT_OUTTAB            = <FS_TABLE>.
+
+ENDFORM.                    " alv_display
+*&---------------------------------------------------------------------*
+*&      Form  refresh_grid_table
+*&---------------------------------------------------------------------*
+*  ALV GRID ### REFRESH ##
+*&---------------------------------------------------------------------*
+*  -->  P_GRID
+*  -->  PS_LAYOUT
+*&---------------------------------------------------------------------*
+FORM REFRESH_GRID_TABLE USING PO_GRID  TYPE REF TO CL_GUI_ALV_GRID
+*                              ps_layout  TYPE lvc_s_layo
+                              PS_STABLE TYPE LVC_S_STBL.
+
+  CALL METHOD PO_GRID->REFRESH_TABLE_DISPLAY
+    EXPORTING
+      I_SOFT_REFRESH = 'X'
+      IS_STABLE      = PS_STABLE
+    EXCEPTIONS
+      FINISHED       = 1
+      OTHERS         = 2.
+
+
+ENDFORM.                    " refresh_grid_table
+*&---------------------------------------------------------------------*
+*&      Form  REFRESH_GRID_TABLE_WITH_FCAT
+*&---------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+FORM REFRESH_GRID_TABLE_WITH_FCAT USING
+     PO_GRID  TYPE REF TO CL_GUI_ALV_GRID
+     PT_FCAT  TYPE LVC_T_FCAT
+     PS_STABLE TYPE LVC_S_STBL.
+
+*  PERFORM get_grid_frontend_fcat USING po_grid CHANGING pt_fcat[].
+  PERFORM SET_GRID_FRONTEND_FCAT USING PO_GRID PT_FCAT[].
+
+  CALL METHOD PO_GRID->REFRESH_TABLE_DISPLAY
+    EXPORTING
+      IS_STABLE = PS_STABLE
+    EXCEPTIONS
+      FINISHED  = 1
+      OTHERS    = 2.
+
+ENDFORM.                    " REFRESH_GRID_TABLE_WITH_FCAT
+*&---------------------------------------------------------------------*
+*&      Form  set_grid_frontend_fcat
+*&---------------------------------------------------------------------*
+*  set_grid_frontend_fcat
+*&---------------------------------------------------------------------*
+*  -->  P_GRID
+*  -->  PS_fcat
+*&---------------------------------------------------------------------*
+FORM SET_GRID_FRONTEND_FCAT USING PO_GRID TYPE REF TO CL_GUI_ALV_GRID
+                                  PT_FCAT TYPE LVC_T_FCAT.
+  CALL METHOD PO_GRID->SET_FRONTEND_FIELDCATALOG
+    EXPORTING
+      IT_FIELDCATALOG = PT_FCAT[].
+ENDFORM.                    " set_grid_frontend_fcat
+*&---------------------------------------------------------------------*
+*&      Form  get_grid_frontend_fcat
+*&---------------------------------------------------------------------*
+* get_grid_frontend_fcat
+*&---------------------------------------------------------------------*
+*  -->  P_GRID
+*  -->  PS_fcat
+*&---------------------------------------------------------------------*
+FORM GET_GRID_FRONTEND_FCAT USING PO_GRID TYPE REF TO CL_GUI_ALV_GRID
+                          CHANGING PT_FCAT TYPE LVC_T_FCAT.
+  CALL METHOD PO_GRID->GET_FRONTEND_FIELDCATALOG
+    IMPORTING
+      ET_FIELDCATALOG = PT_FCAT[].
+ENDFORM.                    " get_grid_frontend_fcat
+*&---------------------------------------------------------------------*
+*&      Form  SET_DROP_DOWN_TABLE
+*&---------------------------------------------------------------------*
+*  DropDown list
+*----------------------------------------------------------------------*
+*      -->P_GRID  text
+*      -->PT_DROPDOWN  text
+*----------------------------------------------------------------------*
+FORM SET_DROP_DOWN_TABLE  USING    PO_GRID TYPE REF TO CL_GUI_ALV_GRID
+                                   PT_DROPDOWN TYPE LVC_T_DROP.
+
+  CALL METHOD PO_GRID->SET_DROP_DOWN_TABLE
+    EXPORTING
+      IT_DROP_DOWN = PT_DROPDOWN[].
+
+ENDFORM.                    " SET_DROP_DOWN_TABLE
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_DOCKING_CONTAINER
+*&---------------------------------------------------------------------*
+*   Docking Container
+*----------------------------------------------------------------------*
+*  -->P_DOCKING  text
+*  -->P_SIDE  text
+*----------------------------------------------------------------------*
+FORM CREATE_DOCKING_CONTAINER
+             USING  PO_DOCKING TYPE REF TO CL_GUI_DOCKING_CONTAINER
+                    P_SIDE
+                    P_EXTENSION.
+
+  IF NOT PO_DOCKING IS INITIAL.
+    CALL METHOD PO_DOCKING->FREE.
+  ENDIF.
+
+  CREATE OBJECT PO_DOCKING
+    EXPORTING
+*        PARENT    = p_parent
+      REPID     = SY-REPID
+      DYNNR     = SY-DYNNR
+      SIDE      = P_SIDE
+      EXTENSION = P_EXTENSION.
+
+ENDFORM.                    " CREATE_DOCKING_CONTAINER
+
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_DOCKING_CONTAINER2
+*&---------------------------------------------------------------------*
+*   Docking Container
+*----------------------------------------------------------------------*
+*  -->P_DOCKING  text
+*  -->P_SIDE  text
+*----------------------------------------------------------------------*
+FORM CREATE_DOCKING_CONTAINER2
+             USING  PO_PARENT     "TYPE REF TO cl_gui_container
+                    PO_DOCKING TYPE REF TO CL_GUI_DOCKING_CONTAINER
+                    P_SIDE
+                    P_EXTENSION
+                    P_RATIO.
+  DATA: LO_PARENT TYPE REF TO CL_GUI_CONTAINER.
+
+  IF NOT PO_DOCKING IS INITIAL.
+    CALL METHOD PO_DOCKING->FREE.
+  ENDIF.
+
+  LO_PARENT ?= PO_PARENT.
+
+  CREATE OBJECT PO_DOCKING
+    EXPORTING
+      PARENT    = LO_PARENT
+*     repid     = sy-repid
+*     dynnr     = sy-dynnr
+      SIDE      = P_SIDE
+      EXTENSION = P_EXTENSION
+      RATIO     = P_RATIO.
+
+
+ENDFORM.                    " CREATE_DOCKING_CONTAINER2
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_CUSTOM_CONTAINER
+*&---------------------------------------------------------------------*
+*   Custom Conainer
+*&---------------------------------------------------------------------*
+FORM CREATE_CUSTOM_CONTAINER
+                USING  PO_CUSTOM    TYPE REF TO CL_GUI_CUSTOM_CONTAINER
+                       P_CONTAINER TYPE SCRFNAME.
+
+  IF NOT PO_CUSTOM IS INITIAL.
+    CALL METHOD PO_CUSTOM->FREE.
+  ENDIF.
+
+  CREATE OBJECT PO_CUSTOM
+    EXPORTING
+*      parent                      = p_parent
+      CONTAINER_NAME              = P_CONTAINER
+    EXCEPTIONS
+      CNTL_ERROR                  = 1
+      CNTL_SYSTEM_ERROR           = 2
+      CREATE_ERROR                = 3
+      LIFETIME_ERROR              = 4
+      LIFETIME_DYNPRO_DYNPRO_LINK = 5.
+
+ENDFORM.                    " CREATE_CUSTOM_CONTAINER
+
+*&---------------------------------------------------------------------*
+*&      Form  ADD_DOC_TEXT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->PO_DOC  text
+*  -->P_TEXT  text
+*----------------------------------------------------------------------*
+FORM ADD_DOC_TEXT  USING  PO_DOC TYPE REF TO CL_DD_DOCUMENT
+                          P_TEXT TYPE SDYDO_TEXT_ELEMENT.
+
+  CALL METHOD PO_DOC->ADD_TEXT
+    EXPORTING
+      TEXT         = P_TEXT
+*     sap_style    = cl_dd_area=>list_normal
+      SAP_FONTSIZE = CL_DD_DOCUMENT=>SMALL.
+
+
+ENDFORM.                    " ADD_DOc_TEXT
+*&---------------------------------------------------------------------*
+*&      Form  ADD_DOC_TEXT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->PO_DOC  text
+*  -->P_TEXT  text
+*----------------------------------------------------------------------*
+FORM ADD_DOC_TEXT_LABEL  USING  PO_DOC TYPE REF TO CL_DD_DOCUMENT
+                                P_TEXT TYPE SDYDO_TEXT_ELEMENT.
+
+  CALL METHOD PO_DOC->ADD_TEXT
+    EXPORTING
+      TEXT         = P_TEXT
+*     sap_color    = cl_dd_document=>list_normal
+*     sap_fontsize = cl_dd_document=>medium
+      SAP_FONTSIZE = CL_DD_DOCUMENT=>SMALL
+      SAP_EMPHASIS = CL_DD_DOCUMENT=>STRONG.
+
+ENDFORM.                    " ADD_DOc_TEXT
+
+*&---------------------------------------------------------------------*
+*&      Form  ADD_changed_alv_MSG
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->PO_DATA_CHANGED  text
+*  -->P_LS_GOOD  text
+*  -->P_MSGID  text
+*  -->P_MSGNO  text
+*  -->P_MSGTY  text
+*  -->P_MSGV1  text
+*  -->P_MSGV2  text
+*  -->P_MSGV3  text
+*  -->P_MSGV4  text
+*----------------------------------------------------------------------*
+FORM ADD_CHANGED_ALV_MSG  USING
+              PO_DATA_CHANGED  TYPE REF TO CL_ALV_CHANGED_DATA_PROTOCOL
+                           PS_GOOD TYPE LVC_S_MODI
+                           P_MSGID
+                           P_MSGNO
+                           P_MSGTY
+                           P_MSGV1
+                           P_MSGV2
+                           P_MSGV3
+                           P_MSGV4.
+
+  CALL METHOD PO_DATA_CHANGED->ADD_PROTOCOL_ENTRY
+    EXPORTING
+      I_MSGID     = P_MSGID
+      I_MSGNO     = P_MSGNO
+      I_MSGTY     = P_MSGTY
+      I_MSGV1     = P_MSGV1
+      I_MSGV2     = P_MSGV2
+      I_MSGV3     = P_MSGV3
+      I_MSGV4     = P_MSGV4
+      I_FIELDNAME = PS_GOOD-FIELDNAME
+      I_ROW_ID    = PS_GOOD-ROW_ID.
+
+ENDFORM.                    " ADD_changed_alv_MSG
+*&---------------------------------------------------------------------*
+*&      Form  lvc_FIELDCATALOG_MERGE
+*&---------------------------------------------------------------------*
+*  call function 'LVC_FIELDCATALOG_MERGE'
+*----------------------------------------------------------------------*
+FORM LVC_FIELDCATALOG_MERGE TABLES PT_FCAT TYPE LVC_T_FCAT
+      USING P_TABNM.
+
+  DATA : L_STRUCTURE_NAME TYPE DD02L-TABNAME.
+
+  REFRESH PT_FCAT.
+
+  L_STRUCTURE_NAME = P_TABNM.
+
+  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+    EXPORTING
+      I_STRUCTURE_NAME       = L_STRUCTURE_NAME
+    CHANGING
+      CT_FIELDCAT            = PT_FCAT[]
+    EXCEPTIONS
+      INCONSISTENT_INTERFACE = 1
+      PROGRAM_ERROR          = 2
+      OTHERS                 = 3.
+ENDFORM.                    " lvc_FIELDCATALOG_MERGE
+
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_PROTOCOL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->P_PR_DATA_CHANGED  text
+*----------------------------------------------------------------------*
+FORM DISPLAY_PROTOCOL  USING
+            PR_DATA_CHANGED TYPE REF TO CL_ALV_CHANGED_DATA_PROTOCOL.
+
+  PR_DATA_CHANGED->DISPLAY_PROTOCOL( ).
+
+ENDFORM.                    " DISPLAY_PROTOCOL
+*&---------------------------------------------------------------------*
+*&      Form  SET_ALV_FOCUS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*   -->P_FOCUS_ROW  text
+*----------------------------------------------------------------------*
+FORM SET_ALV_FOCUS  USING PO_GRID  TYPE REF TO CL_GUI_ALV_GRID
+                          P_ROW.
+
+  CHECK P_ROW <> 0.
+
+  GS_ROWNO-ROW_ID = P_ROW.
+
+  CALL METHOD CL_GUI_CONTROL=>SET_FOCUS
+    EXPORTING
+      CONTROL = PO_GRID.
+
+  CALL METHOD PO_GRID->SET_CURRENT_CELL_VIA_ID
+    EXPORTING
+      IS_ROW_NO = GS_ROWNO.
+
+  CLEAR P_ROW.
+
+ENDFORM.                    " SET_ALV_FOCUS
+*&---------------------------------------------------------------------*
+*&      Form  SET_ALV_FOCUS_CELL
+*&---------------------------------------------------------------------*
+*  set focus - cell
+*----------------------------------------------------------------------*
+FORM SET_ALV_FOCUS_CELL USING PO_GRID TYPE REF TO CL_GUI_ALV_GRID
+  P_ROW P_COLNAME.
+
+  CHECK P_ROW NE 0.
+
+  GS_ROWNO-ROW_ID   = P_ROW.
+  GS_COLS-FIELDNAME = P_COLNAME.
+
+  CALL METHOD CL_GUI_CONTROL=>SET_FOCUS
+    EXPORTING
+      CONTROL = PO_GRID.
+
+  CALL METHOD PO_GRID->SET_CURRENT_CELL_VIA_ID
+    EXPORTING
+      IS_COLUMN_ID = GS_COLS
+      IS_ROW_NO    = GS_ROWNO.
+
+  CLEAR P_ROW.
+
+ENDFORM.                    " SET_ALV_FOCUS_CELL
+*&---------------------------------------------------------------------*
+*&      Form  SET_ATTRIBUTES_FIX_COLUMN
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_PT_FIELDCAT  text
+*      -->P_0301   text
+*      -->P_ABAP_TRUE  text
+*      -->P_ZCO01_C_COLOR_GREEN  text
+*----------------------------------------------------------------------*
+FORM SET_ATTRIBUTES_FIX_COLUMN TABLES PT_FCAT TYPE LVC_T_FCAT
+  USING P_COLNAME P_FIXCOL P_COLOR.
+*  CALL METHOD ZCOA_CL_UTILITY=>SET_FCAT_ATTRIBUTES
+*    EXPORTING
+*      COLUMNNAME = P_COLNAME
+*      FIX_COLUMN = P_FIXCOL
+*      COLOR      = P_COLOR
+*    CHANGING
+*      CT_FCAT    = PT_FCAT[].
+ENDFORM.                    " SET_ATTRIBUTES_FIX_COLUMN
+*&---------------------------------------------------------------------*
+*&      Form  SET_GRID_F4_FLD
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_FIELDNAME  text
+*      <--P_PT_F4[]  text
+*----------------------------------------------------------------------*
+FORM SET_GRID_F4_FLD  USING    P_FIELDNAME
+                      CHANGING PT_F4 TYPE LVC_T_F4.
+
+  CLEAR: GS_F4.
+
+  GS_F4-FIELDNAME = P_FIELDNAME.
+  GS_F4-REGISTER = 'X'.
+  GS_F4-GETBEFORE = SPACE.
+  GS_F4-CHNGEAFTER = SPACE.
+  APPEND GS_F4 TO PT_F4.
+
+ENDFORM.                    " SET_GRID_F4_FLD
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_TABLE
+*&---------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+FORM CREATE_TABLE USING PO_DOC     TYPE REF TO CL_DD_DOCUMENT
+                        PO_TEXT    TYPE REF TO CL_DD_TABLE_ELEMENT
+                        PO_COLUMN1 TYPE REF TO CL_DD_AREA
+                        PO_COLUMN2 TYPE REF TO CL_DD_AREA
+                        PO_COLUMN3 TYPE REF TO CL_DD_AREA.
+
+  DATA: LO_COLUMN1        TYPE REF TO CL_DD_AREA.           "#EC NEEDED
+  DATA: LO_COLUMN2        TYPE REF TO CL_DD_AREA.           "#EC NEEDED
+  DATA: LO_COLUMN3        TYPE REF TO CL_DD_AREA.           "#EC NEEDED
+  DATA: LO_TEXT           TYPE REF TO CL_DD_TABLE_ELEMENT.
+  DATA: LO_AREA           TYPE REF TO CL_DD_AREA.           "#EC NEEDED
+  DATA: L_PICTURE_ID      TYPE SDYDO_KEY.
+  DATA: L_PICTURE_WIDTH   TYPE SDYDO_VALUE.
+  DATA: L_BUKRS           TYPE BUKRS.
+
+
+  CLEAR : L_PICTURE_ID, L_PICTURE_WIDTH.
+
+  L_PICTURE_WIDTH = '1'.
+  CALL METHOD PO_DOC->VERTICAL_SPLIT
+    EXPORTING
+      SPLIT_AREA  = PO_DOC
+      SPLIT_WIDTH = L_PICTURE_WIDTH
+    IMPORTING
+      RIGHT_AREA  = LO_AREA.
+
+  CALL METHOD LO_AREA->ADD_TABLE
+    EXPORTING
+      NO_OF_COLUMNS      = 3
+      BORDER             = '0'
+    IMPORTING
+      TABLE              = PO_TEXT
+    EXCEPTIONS
+      TABLE_ALREADY_USED = 1
+      OTHERS             = 2.
+
+  "-- column1 - label
+  CALL METHOD PO_TEXT->ADD_COLUMN
+    IMPORTING
+      COLUMN              = PO_COLUMN1
+    EXCEPTIONS
+      COLUMN_ALREADY_USED = 1
+      OTHERS              = 2.
+
+  "-- column2 -
+  CALL METHOD PO_TEXT->ADD_COLUMN
+    EXPORTING
+      WIDTH               = '20'
+    IMPORTING
+      COLUMN              = PO_COLUMN2
+    EXCEPTIONS
+      COLUMN_ALREADY_USED = 1
+      OTHERS              = 2.
+
+  "-- column3 - text
+  CALL METHOD PO_TEXT->ADD_COLUMN
+    IMPORTING
+      COLUMN              = PO_COLUMN3
+    EXCEPTIONS
+      COLUMN_ALREADY_USED = 1
+      OTHERS              = 2.
+
+ENDFORM.                    " CREATE_TABLE
+*&---------------------------------------------------------------------*
+*&      Form  NEW_LINE_WITH_TABLE
+*&---------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+FORM NEW_LINE_WITH_TABLE USING
+      PO_DOC     TYPE REF TO CL_DD_DOCUMENT
+      PO_TEXT    TYPE REF TO CL_DD_TABLE_ELEMENT
+      PO_COLUMN1 TYPE REF TO CL_DD_AREA
+      PO_COLUMN2 TYPE REF TO CL_DD_AREA
+      PO_COLUMN3 TYPE REF TO CL_DD_AREA
+      P_LABEL    TYPE SDYDO_TEXT_ELEMENT
+      P_TEXT     TYPE SDYDO_TEXT_ELEMENT.
+
+*-- label
+  CALL METHOD PO_COLUMN1->ADD_TEXT
+    EXPORTING
+      TEXT         = P_LABEL
+      SAP_FONTSIZE = CL_DD_DOCUMENT=>SMALL
+      SAP_EMPHASIS = CL_DD_DOCUMENT=>STRONG.
+
+*--
+  CALL METHOD PO_COLUMN2->ADD_TEXT
+    EXPORTING
+      TEXT         = ' '
+      SAP_FONTSIZE = CL_DD_DOCUMENT=>SMALL
+      SAP_EMPHASIS = CL_DD_DOCUMENT=>STRONG.
+
+*-- text
+  CALL METHOD PO_COLUMN3->ADD_TEXT
+    EXPORTING
+      TEXT         = P_TEXT
+      SAP_FONTSIZE = CL_DD_DOCUMENT=>SMALL.
+
+*--
+  CALL METHOD PO_TEXT->NEW_ROW( ).
+
+ENDFORM.                    " NEW_LINE_WITH_TABLE
+
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_GRID_CONTAINER
+*&---------------------------------------------------------------------*
+*
+*&---------------------------------------------------------------------*
+FORM CREATE_GRID_CONTAINER_C
+                USING    P_PARENT
+                         PO_GRID_C    TYPE REF TO LCL_DEF_GRID
+                         PO_GRID      TYPE REF TO CL_GUI_ALV_GRID
+                         P_APPL.
+
+  CHECK PO_GRID IS INITIAL.
+
+  IF PO_GRID_C IS NOT INITIAL.
+    PO_GRID_C->FREE( ).
+  ENDIF.
+
+  CREATE OBJECT PO_GRID_C
+    EXPORTING
+      I_PARENT      = P_PARENT
+      I_APPL_EVENTS = P_APPL.
+
+  PO_GRID ?= PO_GRID_C.
+
+ENDFORM.                    " CREATE_GRID_CONTAINER
+*&---------------------------------------------------------------------*
+*&      Form  GET_MODIFIED_ALV_CELL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_PR_DATA_CHANGED  text
+*      -->P_3342   text
+*      <--P_LS_LINE_INCRAT  text
+*----------------------------------------------------------------------*
+FORM GET_MODIFIED_ALV_CELL
+         USING PR_DATA_CHANGED TYPE REF TO CL_ALV_CHANGED_DATA_PROTOCOL
+               PS_GOOD   TYPE LVC_S_MODI
+               P_FNAME
+      CHANGING P_VALUE.
+
+  DATA: LS_FCAT TYPE LVC_S_FCAT,
+        LS_CELL TYPE LVC_S_MODI.
+  FIELD-SYMBOLS: <LFS_IT> TYPE TABLE,
+                 <LFS_WA> TYPE ANY ,
+                 <LFS_VAL> TYPE ANY.
+
+*  CALL METHOD pr_data_changed->get_cell_value
+*    EXPORTING
+*      i_row_id    = ps_good-row_id
+*      i_tabix     = ps_good-tabix
+*      i_fieldname = p_fname
+*    IMPORT!ING
+*      e_value     = p_value.
+
+
+  ASSIGN PR_DATA_CHANGED->MP_MOD_ROWS->* TO <LFS_IT>.
+
+  READ TABLE <LFS_IT> ASSIGNING <LFS_WA> INDEX PS_GOOD-TABIX.
+  ASSIGN COMPONENT P_FNAME OF STRUCTURE <LFS_WA> TO <LFS_VAL>.
+
+*--
+  IF <LFS_VAL> IS NOT INITIAL.
+    P_VALUE = <LFS_VAL>.
+  ELSE.
+*--
+    READ TABLE PR_DATA_CHANGED->MT_FIELDCATALOG INTO LS_FCAT
+                           WITH KEY FIELDNAME = P_FNAME.
+    IF LS_FCAT-EDIT EQ ABAP_TRUE.
+      READ TABLE PR_DATA_CHANGED->MT_MOD_CELLS INTO LS_CELL
+                           WITH KEY ROW_ID = PS_GOOD-ROW_ID
+                                    FIELDNAME = P_FNAME.
+      IF SY-SUBRC EQ 0.
+        P_VALUE = LS_CELL-VALUE.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.                    " GET_MODIFIED_ALV_CELL
+*&---------------------------------------------------------------------*
+*&      Form  MODIFY_MODIFIED_ALV_CELL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_PR_DATA_CHANGED  text
+*      -->P_PS_GOOD  text
+*      -->P_P_FNAME  text
+*      -->P_P_VALUE  text
+*----------------------------------------------------------------------*
+FORM MODIFY_MODIFIED_ALV_CELL
+         USING PR_DATA_CHANGED TYPE REF TO CL_ALV_CHANGED_DATA_PROTOCOL
+               PS_GOOD   TYPE LVC_S_MODI
+               P_FNAME
+               P_VALUE.
+
+  CALL METHOD PR_DATA_CHANGED->MODIFY_CELL
+    EXPORTING
+      I_ROW_ID    = PS_GOOD-ROW_ID
+      I_FIELDNAME = P_FNAME
+      I_VALUE     = P_VALUE.
+
+ENDFORM.                    " MODIFY_MODIFIED_ALV_CELL
+*&---------------------------------------------------------------------*
+*&      Form  SPLIT_CONTAINER
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM SPLIT_CONTAINER USING
+           PO_DOCKING_CONTAINER TYPE REF TO CL_GUI_DOCKING_CONTAINER
+           PA_HEIGHT.
+
+*-- Create Splitter for custom_container
+  CREATE OBJECT GO_SPLITTER
+    EXPORTING
+      PARENT  = PO_DOCKING_CONTAINER
+      ROWS    = 2
+      COLUMNS = 1.
+
+*-- get top container as header
+  CALL METHOD GO_SPLITTER->GET_CONTAINER
+    EXPORTING
+      ROW       = 1
+      COLUMN    = 1
+    RECEIVING
+      CONTAINER = GO_CONTAINER.
+
+*-- get bottom container as ALV grid
+  CALL METHOD GO_SPLITTER->GET_CONTAINER
+    EXPORTING
+      ROW       = 2
+      COLUMN    = 1
+    RECEIVING
+      CONTAINER = GO_CONTAINER2.
+
+*-- Set height for header container
+  CALL METHOD GO_SPLITTER->SET_ROW_MODE
+    EXPORTING
+      MODE = GO_SPLITTER->MODE_ABSOLUTE.
+
+  CALL METHOD GO_SPLITTER->SET_ROW_HEIGHT
+    EXPORTING
+      ID     = 1
+      HEIGHT = PA_HEIGHT. "80.
+
+*-- create document for Header
+  CREATE OBJECT GO_DOCUMENT
+    EXPORTING
+      STYLE = 'ALV_GRID'.
+
+ENDFORM.                    " SPLIT_CONTAINER
+*&---------------------------------------------------------------------*
+*&      Form  ADD_DOC_TEXT2
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_PO_DOCUMENT  text
+*      -->P_PO_TEXT  text
+*      -->P_PO_COLUMN1  text
+*      -->P_PO_COLUMN2  text
+*      -->P_PO_COLUMN3  text
+*      -->P_TEXT_T01  text
+*      -->P_L_TEXT  text
+*----------------------------------------------------------------------*
+FORM ADD_DOC_TEXT2  USING
+          PO_DOC TYPE REF TO CL_DD_DOCUMENT
+          PO_TEXT    TYPE REF TO CL_DD_TABLE_ELEMENT
+          PO_COLUMN1 TYPE REF TO CL_DD_AREA
+          PO_COLUMN2 TYPE REF TO CL_DD_AREA
+          PO_COLUMN3 TYPE REF TO CL_DD_AREA
+          P_LABEL
+          P_TEXT TYPE SDYDO_TEXT_ELEMENT.
+
+  "*-- label
+  CALL METHOD PO_COLUMN1->ADD_TEXT
+    EXPORTING
+      TEXT         = P_LABEL
+      SAP_FONTSIZE = CL_DD_DOCUMENT=>SMALL
+      SAP_EMPHASIS = CL_DD_DOCUMENT=>STRONG.
+
+  "
+  CALL METHOD PO_COLUMN2->ADD_TEXT
+    EXPORTING
+      TEXT         = '    '
+      SAP_FONTSIZE = CL_DD_DOCUMENT=>SMALL
+      SAP_EMPHASIS = CL_DD_DOCUMENT=>STRONG.
+
+  "*-- text
+  CALL METHOD PO_COLUMN3->ADD_TEXT
+    EXPORTING
+      TEXT         = P_TEXT
+      SAP_FONTSIZE = CL_DD_DOCUMENT=>SMALL.
+
+  "*--
+  CALL METHOD PO_TEXT->NEW_ROW( ).
+
+
+ENDFORM.                    " ADD_DOC_TEXT2
+*&---------------------------------------------------------------------*
+*&      Form  SET_EXCLUDE_FUNC
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_2385   text
+*      <--P_GT_EXCLUDE  text
+*----------------------------------------------------------------------*
+FORM SET_EXCLUDE_FUNC  USING    VALUE(PA_GUBUN)
+                       CHANGING PT_EXCLUDE TYPE UI_FUNCTIONS.
+
+  DATA: LS_EXCLUDE TYPE UI_FUNC.
+
+  DEFINE _EXCLUDE.
+    LS_EXCLUDE = &1.
+    APPEND LS_EXCLUDE TO PT_EXCLUDE.
+  END-OF-DEFINITION.
+
+  CLEAR : PT_EXCLUDE[].
+  CASE PA_GUBUN.
+    WHEN 'NO_INSERT'.
+      _EXCLUDE : CL_GUI_ALV_GRID=>MC_FC_LOC_COPY_ROW,
+                 CL_GUI_ALV_GRID=>MC_FC_LOC_DELETE_ROW,
+                 CL_GUI_ALV_GRID=>MC_FC_LOC_APPEND_ROW,
+                 CL_GUI_ALV_GRID=>MC_FC_LOC_INSERT_ROW,
+                 CL_GUI_ALV_GRID=>MC_FC_LOC_MOVE_ROW,
+                 CL_GUI_ALV_GRID=>MC_FC_LOC_PASTE_NEW_ROW,
+                 CL_GUI_ALV_GRID=>MC_FC_LOC_PASTE,
+                 CL_GUI_ALV_GRID=>MC_FC_LOC_UNDO,
+                 CL_GUI_ALV_GRID=>MC_FC_LOC_COPY,
+                 CL_GUI_ALV_GRID=>MC_FC_LOC_CUT,
+                 CL_GUI_ALV_GRID=>MC_FC_REFRESH,
+                 CL_GUI_ALV_GRID=>MC_FC_INFO.
+*                 CL_GUI_ALV_GRID=>MC_FC_GRAPH.
+
+    WHEN 'INSERT'.
+      _EXCLUDE : CL_GUI_ALV_GRID=>MC_FC_LOC_COPY_ROW,
+*                 CL_GUI_ALV_GRID=>MC_FC_LOC_DELETE_ROW,
+                CL_GUI_ALV_GRID=>MC_FC_LOC_APPEND_ROW,
+           CL_GUI_ALV_GRID=>MC_FC_LOC_INSERT_ROW,
+           CL_GUI_ALV_GRID=>MC_FC_LOC_MOVE_ROW,
+           CL_GUI_ALV_GRID=>MC_FC_LOC_PASTE_NEW_ROW,
+           CL_GUI_ALV_GRID=>MC_FC_LOC_PASTE,
+           CL_GUI_ALV_GRID=>MC_FC_LOC_UNDO,
+           CL_GUI_ALV_GRID=>MC_FC_LOC_COPY,
+           CL_GUI_ALV_GRID=>MC_FC_LOC_CUT,
+           CL_GUI_ALV_GRID=>MC_FC_REFRESH,
+           CL_GUI_ALV_GRID=>MC_FC_INFO,
+           CL_GUI_ALV_GRID=>MC_FC_GRAPH.
+
+    WHEN 'DELETE'.
+      _EXCLUDE : CL_GUI_ALV_GRID=>MC_FC_LOC_COPY_ROW,
+*                 CL_GUI_ALV_GRID=>MC_FC_LOC_DELETE_ROW,
+                  CL_GUI_ALV_GRID=>MC_FC_LOC_APPEND_ROW,
+                  CL_GUI_ALV_GRID=>MC_FC_LOC_INSERT_ROW,
+                  CL_GUI_ALV_GRID=>MC_FC_LOC_MOVE_ROW,
+                  CL_GUI_ALV_GRID=>MC_FC_LOC_PASTE_NEW_ROW,
+                  CL_GUI_ALV_GRID=>MC_FC_LOC_PASTE,
+                  CL_GUI_ALV_GRID=>MC_FC_LOC_UNDO,
+                  CL_GUI_ALV_GRID=>MC_FC_LOC_COPY,
+                  CL_GUI_ALV_GRID=>MC_FC_LOC_CUT,
+                  CL_GUI_ALV_GRID=>MC_FC_REFRESH,
+                  CL_GUI_ALV_GRID=>MC_FC_INFO,
+                  CL_GUI_ALV_GRID=>MC_FC_GRAPH.
+
+  ENDCASE.
+
+ENDFORM.                    " SET_EXCLUDE_FUNC
+*&---------------------------------------------------------------------*
+*&      Form  GET_CURRENT_CELL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GO_GRID2  text
+*----------------------------------------------------------------------*
+FORM GET_CURRENT_CELL  USING PO_GRID  TYPE REF TO CL_GUI_ALV_GRID
+                    CHANGING PA_ROW.
+
+
+  DATA : L_ROW     TYPE I,
+         L_VALUE   TYPE C,
+         L_COL     TYPE I,
+         LS_ROW_ID TYPE LVC_S_ROW,
+         LS_COL_ID TYPE LVC_S_COL,
+         LS_ROW_NO TYPE LVC_S_ROID.
+
+  CALL METHOD PO_GRID->GET_CURRENT_CELL
+    IMPORTING
+      E_ROW     = L_ROW
+      E_VALUE   = L_VALUE
+      E_COL     = L_COL
+      ES_ROW_ID = LS_ROW_ID
+      ES_COL_ID = LS_COL_ID
+      ES_ROW_NO = LS_ROW_NO.
+
+  PA_ROW = L_ROW.
+  G_FOCUS_COL = LS_COL_ID-FIELDNAME.
+
+ENDFORM.                    " GET_CURRENT_CELL
+*&---------------------------------------------------------------------*
+*&      Form  SET_FRONTEND_FIELDCATALOG
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GT_FIELDCAT[]  text
+*      -->P_CLEAR  text
+*      -->P_GO_DOCKING_CONTAINER  text
+*----------------------------------------------------------------------*
+FORM SET_FRONTEND_FIELDCATALOG
+      TABLES PT_FIELDCAT STRUCTURE LVC_S_FCAT               "#EC
+       USING PO_GRID      TYPE REF TO CL_GUI_ALV_GRID.
+
+  CALL METHOD PO_GRID->SET_FRONTEND_FIELDCATALOG
+    EXPORTING
+      IT_FIELDCATALOG = PT_FIELDCAT[].
+
+ENDFORM.                    " SET_FRONTEND_FIELDCATALOG
+*&---------------------------------------------------------------------*
+*&      Form  DYNPRO
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_3216   text
+*      -->P_3217   text
+*      -->P_3218   text
+*----------------------------------------------------------------------*
+FORM DYNPRO   USING DYNBEGIN NAME VALUE.
+  CLEAR GT_BDCTAB.
+  IF DYNBEGIN = 'X'.
+    MOVE : NAME  TO GT_BDCTAB-PROGRAM,
+           VALUE TO GT_BDCTAB-DYNPRO,
+           'X'   TO GT_BDCTAB-DYNBEGIN.
+  ELSE.
+    MOVE : NAME  TO GT_BDCTAB-FNAM,
+           VALUE TO GT_BDCTAB-FVAL.
+  ENDIF.
+  APPEND GT_BDCTAB.
+
+ENDFORM.                    " DYNPRO
+*&---------------------------------------------------------------------*
+*&      Form  ACTIVITY_GROUP_POPUP
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_P_KOKRS  text
+*      -->P_P_KOKRS  text
+*      -->P_C_0101  text
+*      -->P_P_CCGRP  text
+*----------------------------------------------------------------------*
+FORM ACTIVITY_GROUP_POPUP  USING  P_KOKRS
+                               P_KTOPL
+                               P_CLASS
+                               P_GROUP.
+
+  DATA : L_SETID LIKE SETHIER-SETID,
+         L_FLAG  LIKE SY-DATAR,
+         L_SHNAM LIKE SETHIER-SHORTNAME.
+
+  DATA : BEGIN OF L_CONV,
+         CLASS     LIKE SETHIER-SETCLASS,
+         SHNAM     LIKE SETHIER-SHORTNAME,
+         KOKRS     LIKE TKA01-KOKRS,
+         KTOPL     LIKE TKA01-KTOPL,
+         SETID     LIKE SETHIER-SETID,
+         SEAFD     LIKE SETHIER-SEARCHFLD,
+         END OF L_CONV.
+
+  MOVE P_GROUP TO L_SHNAM.
+
+  PERFORM K_GROUP_SELECT(SAPLKKHI) USING P_CLASS
+                                         SPACE
+                                         L_SHNAM
+                                         P_KOKRS
+                                         P_KTOPL
+                                         L_FLAG
+                                         L_SETID.
+
+  CHECK NOT L_SETID IS INITIAL.
+
+  PERFORM G_SET_DECRYPT_SETID(SAPLKKHI) USING L_SETID
+                                              L_CONV-CLASS
+                                              L_CONV-SHNAM
+                                              L_CONV-KOKRS
+                                              L_CONV-KTOPL
+                                              L_CONV-SEAFD.
+
+  MOVE L_CONV-SHNAM TO P_GROUP.
+
+
+ENDFORM.                    " ACTIVITY_GROUP_POPUP
+*&---------------------------------------------------------------------*
+*&      Form  SHOW_DOCUMENT_AS_HTML
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GO_CONTAINER  text
+*      -->P_GO_HTML_VIEWER  text
+*      -->P_PO_DOCUMENT  text
+*----------------------------------------------------------------------*
+FORM SHOW_DOCUMENT_AS_HTML  USING PO_PARENT
+                  PO_HTML_VIEWER TYPE REF TO CL_GUI_HTML_VIEWER
+                  PO_DOCUMENT TYPE REF TO CL_DD_DOCUMENT.
+
+
+  DATA : L_LENGTH  TYPE I. ",                           " Length
+*         L_BACKGROUND_ID TYPE SDYDO_KEY VALUE SPACE. " Background_id
+
+* Create HTML Viewer
+  IF PO_HTML_VIEWER IS INITIAL.
+    CREATE OBJECT PO_HTML_VIEWER
+      EXPORTING
+        PARENT = PO_PARENT.
+  ENDIF.
+
+* Set ALV Grid Commentary
+  CALL FUNCTION 'REUSE_ALV_GRID_COMMENTARY_SET'
+    EXPORTING
+      DOCUMENT = PO_DOCUMENT
+      BOTTOM   = SPACE
+    IMPORTING
+      LENGTH   = L_LENGTH.
+
+  CALL METHOD PO_DOCUMENT->MERGE_DOCUMENT.
+
+* Display Document
+  PO_DOCUMENT->HTML_CONTROL = PO_HTML_VIEWER.
+
+  CALL METHOD PO_DOCUMENT->DISPLAY_DOCUMENT
+    EXPORTING
+      REUSE_CONTROL      = 'X'
+      PARENT             = PO_PARENT
+    EXCEPTIONS
+      HTML_DISPLAY_ERROR = 1.
+ENDFORM.                    " SHOW_DOCUMENT_AS_HTML
+*&---------------------------------------------------------------------*
+*&      Form  SPLIT_CONTAINER2
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GO_DOCKING_CONTAINER  text
+*      -->P_G_HEIGHT  text
+*----------------------------------------------------------------------*
+*form split_container2  using
+*           po_docking_container type ref to cl_gui_docking_container
+*           pa_height.
+*
+**-- cREATE sPLITTER FOR CUSTOM_CONTAINER
+*  create object go_splitter
+*    exporting
+*      parent  = po_docking_container
+*      rows    = 3
+*      columns = 1.
+*
+**-- GET TOP CONTAINER AS HEADER
+*  call method go_splitter->get_container
+*    exporting
+*      row       = 1
+*      column    = 1
+*    receiving
+*      container = go_container.
+*
+**-- GET BOTTOM CONTAINER AS alv GRID
+*  call method go_splitter->get_container
+*    exporting
+*      row       = 2
+*      column    = 1
+*    receiving
+*      container = go_container2.
+*
+*    call method go_splitter->get_container
+*    exporting
+*      row       = 3
+*      column    = 1
+*    receiving
+*      container = go_container3.
+*
+**-- sET HEIGHT FOR HEADER CONTAINER
+*  call method go_splitter->set_row_mode
+*    exporting
+*      mode = go_splitter->mode_absolute.
+*
+*  call method go_splitter->set_row_height
+*    exporting
+*      id     = 2
+*      height = pa_height. "80.
+*
+**-- CREATE DOCUMENT FOR hEADER
+*  create object go_document
+*    exporting
+*      style = 'alv_grid'.
+*endform.                    " split_container2
+
